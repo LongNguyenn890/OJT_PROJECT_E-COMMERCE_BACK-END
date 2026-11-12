@@ -1,4 +1,5 @@
 from typing import Optional
+from enum import Enum
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -14,23 +15,24 @@ from app.service import order_status_histories as crud_order_histories
 
 router = APIRouter(prefix="/orders", tags=["Order Histories"])
 
-VALID_STATUSES = ["PENDING", "CONFIRMED", "SHIPPING", "DELIVERED", "COMPLETED", "CANCELLED"]
-
+class OrderStatusFilter(str, Enum):
+    PENDING = "PENDING"
+    CONFIRMED = "CONFIRMED"
+    SHIPPING = "SHIPPING"
+    DELIVERED = "DELIVERED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
 
 @router.get("/my", response_model=MyOrdersPaginationResponse)
 def read_my_orders(
-    status_filter: Optional[str] = Query(None, alias="status", description="Lọc theo trạng thái"),
+    status_filter: Optional[OrderStatusFilter] = Query(None, alias="status", description="Lọc theo trạng thái"),
     page: int = Query(1, ge=1, description="Trang hiện tại"),
     page_size: int = Query(10, ge=1, le=50, description="Số lượng mỗi trang"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Khách hàng xem danh sách đơn hàng của mình (FR-028)."""
-    if status_filter and status_filter.upper() not in VALID_STATUSES:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Trạng thái đơn hàng không hợp lệ",
-        )
+    status_val = status_filter.value if status_filter else None
 
     total, orders = crud_order_histories.get_orders_by_user(
         db=db,
