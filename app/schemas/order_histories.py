@@ -1,18 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 
-# Schema cho từng món hàng trong đơn
-class OrderItemResponse(BaseModel):
-    id: int
-    product_id: int
-    product_name: str
-    unit_price: int
-    quantity: int
-    subtotal: int
+from app.schemas.order_item import OrderItemResponse
 
-    class Config:
-        from_attributes = True
 
 # Schema cho lịch sử trạng thái
 class OrderStatusHistoryResponse(BaseModel):
@@ -22,8 +13,8 @@ class OrderStatusHistoryResponse(BaseModel):
     note: Optional[str] = None
     changed_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
 
 # Schema hiển thị danh sách đơn (ngắn gọn)
 class OrderListResponse(BaseModel):
@@ -34,8 +25,8 @@ class OrderListResponse(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
 
 # Schema phản hồi phân trang danh sách đơn
 class MyOrdersPaginationResponse(BaseModel):
@@ -43,6 +34,9 @@ class MyOrdersPaginationResponse(BaseModel):
     page: int
     page_size: int
     items: List[OrderListResponse]
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 # Schema hiển thị chi tiết một đơn
 class OrderDetailResponse(BaseModel):
@@ -60,5 +54,4 @@ class OrderDetailResponse(BaseModel):
     items: List[OrderItemResponse] = []
     histories: List[OrderStatusHistoryResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -1,17 +1,24 @@
+from __future__ import annotations
 from datetime import datetime
 from enum import Enum
+from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import DateTime, Integer, Text, func, Enum as SQL_Enum, BigInteger, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
 
+if TYPE_CHECKING:
+    from .product import Product
+    from .order import Order
+    from .user import User
+
 class ChangeType(str, Enum):
-    INITIAL = "INITIAL" # Thêm mới ban dầu
-    IMPORT = "IMPORT" # Nhập thêm
-    ADJUST = "ADJUST" # Điều chỉnh
-    ORDER = "ORDER" # Tạo đơn
-    CANCEL = "CANCEL" # Trả tồn kho khi hủy
+    INITIAL = "INITIAL"  # Thêm mới ban đầu
+    IMPORT = "IMPORT"    # Nhập thêm
+    ADJUST = "ADJUST"    # Điều chỉnh
+    ORDER = "ORDER"      # Tạo đơn
+    CANCEL = "CANCEL"    # Trả tồn kho khi hủy
 
 
 class StockLog(Base):
@@ -27,3 +34,8 @@ class StockLog(Base):
     stock_after: Mapped[int] = mapped_column(Integer, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    # Quan hệ liên kết
+    product: Mapped["Product"] = relationship("Product", back_populates="stock_logs")
+    order: Mapped[Optional["Order"]] = relationship("Order")
+    user: Mapped[Optional["User"]] = relationship("User", foreign_keys=[created_by])

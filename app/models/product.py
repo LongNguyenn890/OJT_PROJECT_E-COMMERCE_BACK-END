@@ -1,6 +1,7 @@
+from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 from sqlalchemy import DateTime, Numeric, String, Text, func, BigInteger, ForeignKey, Integer, SmallInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -10,6 +11,7 @@ from app.db.session import Base
 if TYPE_CHECKING:
     from .category import Category
     from .product_image import ProductImage
+    from .stock_log import StockLog
 
 
 class Product(Base):
@@ -28,4 +30,5 @@ class Product(Base):
     )
 
     category: Mapped["Category"] = relationship(back_populates="products")
-    product_images: Mapped[list["ProductImage"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+    product_images: Mapped[List["ProductImage"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+    stock_logs: Mapped[List["StockLog"]] = relationship(back_populates="product", cascade="all, delete-orphan")

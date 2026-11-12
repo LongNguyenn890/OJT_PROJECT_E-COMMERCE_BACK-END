@@ -3,12 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-# Import chuẩn từ dependencies/auth.py và models/user.py
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 
 from app.schemas import (
-    OrderItemResponse,
+    MyOrdersPaginationResponse,
     OrderDetailResponse,
 )
 from app.service import order_status_histories as crud_order_histories
@@ -18,7 +17,7 @@ router = APIRouter(prefix="/orders", tags=["Order Histories"])
 VALID_STATUSES = ["PENDING", "CONFIRMED", "SHIPPING", "DELIVERED", "COMPLETED", "CANCELLED"]
 
 
-@router.get("/my", response_model=OrderItemResponse)
+@router.get("/my", response_model=MyOrdersPaginationResponse)
 def read_my_orders(
     status_filter: Optional[str] = Query(None, alias="status", description="Lọc theo trạng thái"),
     page: int = Query(1, ge=1, description="Trang hiện tại"),
@@ -80,9 +79,9 @@ def read_order_detail(
         receiver_phone=order.receiver_phone,
         shipping_address=order.shipping_address,
         note=order.note,
-        payment_method=order.payment_method,
+        payment_method=str(order.payment_method.value if hasattr(order.payment_method, "value") else order.payment_method),
         total_amount=order.total_amount,
-        status=order.status,
+        status=str(order.status.value if hasattr(order.status, "value") else order.status),
         cancel_reason=order.cancel_reason,
         created_at=order.created_at,
         items=items,
