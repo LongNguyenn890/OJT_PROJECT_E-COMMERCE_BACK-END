@@ -37,7 +37,7 @@ def read_my_orders(
     total, orders = crud_order_histories.get_orders_by_user(
         db=db,
         user_id=current_user.id,
-        status=status_filter,
+        status=status_val,
         page=page,
         page_size=page_size,
     )
