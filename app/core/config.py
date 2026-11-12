@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # Chuỗi các origin cách nhau bằng dấu phẩy, hoặc "*"
     CORS_ORIGINS: str = "*"
 
+    # ---- JWT Authentication ----
+    SECRET_KEY: str = "ks25_secret_key_jwt_token_super_secret_change_me_in_production_123456"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
     @property
     def database_url(self) -> str:
         # mysql+pymysql://user:password@host:port/database

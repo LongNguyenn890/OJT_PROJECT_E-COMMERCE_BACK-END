@@ -1,3 +1,5 @@
+from app.schemas.address import AddressCreate, AddressResponse, AddressUpdate
+from app.schemas.user import UserCreate, TokenResponse, UserLogin, UserResponse, UserStatusUpdate, UserUpdate
 from app.schemas.category import (
     CategoryBase,
     CategoryCreate,
@@ -16,18 +18,3 @@ from app.schemas.product import (
     ProductResponse,
     ProductUpdate,
 )
-
-__all__ = [
-    "CategoryBase",
-    "CategoryCreate",
-    "CategoryUpdate",
-    "CategoryResponse",
-    "ProductImageBase",
-    "ProductImageCreate",
-    "ProductImageUpdate",
-    "ProductImageResponse",
-    "ProductBase",
-    "ProductCreate",
-    "ProductUpdate",
-    "ProductResponse",
-]
