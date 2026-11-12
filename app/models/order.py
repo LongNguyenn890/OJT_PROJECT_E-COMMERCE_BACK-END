@@ -40,5 +40,13 @@ class Order(Base):
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
     completed_at = Column(DateTime, nullable=True)
 
+    # Quan hệ liên kết
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     user = relationship("User", back_populates="orders")
+    address = relationship("Address")
+    histories = relationship(
+        "OrderStatusHistory",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        order_by="OrderStatusHistory.changed_at.desc()",
+    )
