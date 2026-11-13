@@ -11,6 +11,13 @@ from app.schemas import (
     MyOrdersPaginationResponse,
     OrderDetailResponse,
 )
+
+from app.schemas import (
+    MyOrdersPaginationResponse,
+    OrderDetailResponse,
+    CancelOrderRequest 
+)
+
 from app.service import order_status_histories as crud_order_histories
 
 router = APIRouter(prefix="/orders", tags=["Order Histories"])
@@ -89,3 +96,67 @@ def read_order_detail(
         items=items,
         histories=histories,
     )
+
+@router.post("/{id}/cancel")
+def cancel_order_endpoint(
+    id: int,
+    request: CancelOrderRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Hủy đơn hàng theo điều kiện (FR-027)."""
+    order = crud_order_histories.get_order_by_id(db=db, order_id=id)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Đơn hàng không tồn tại",
+        )
+    # Lấy role của người dùng hiện tại (chuyển về dạng string in hoa)
+    user_role = str(getattr(current_user, "role", "")).upper()
+    current_status = str(order.status.value if hasattr(order.status, "value") else order.status).upper()
+    # 1. Chặn nếu đơn đã ở trạng thái kết thúc hoặc đang giao
+    if current_status == "CANCELLED":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Đơn hàng này đã được hủy trước đó",
+        )
+    if current_status in ["SHIPPING", "COMPLETED"]:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Không thể hủy đơn hàng đang giao hoặc đã hoàn thành",
+        )
+    # 2. Kiểm tra điều kiện theo từng vai trò
+    if user_role not in ["ADMIN", "STAFF"]:
+        # Khách hàng chỉ được hủy đơn của chính mình
+        if order.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bạn không có quyền hủy đơn hàng này",
+            )
+        # Khách chỉ được hủy khi đơn còn PENDING
+        if current_status != "PENDING":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Khách hàng chỉ được hủy đơn khi đơn ở trạng thái Chờ xác nhận (PENDING)",
+            )
+    else:
+        # Admin / Staff được hủy khi đơn ở PENDING hoặc CONFIRMED
+        if current_status not in ["PENDING", "CONFIRMED"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Chỉ có thể hủy đơn hàng trước khi chuyển sang giao hàng",
+            )
+    # 3. Thực hiện hủy đơn và hoàn kho
+    cancelled_order = crud_order_histories.cancel_order(
+        db=db,
+        order=order,
+        user_id=current_user.id,
+        cancel_reason=request.cancel_reason,
+    )
+    return {
+        "message": "Hủy đơn hàng thành công",
+        "order_id": cancelled_order.id,
+        "order_code": cancelled_order.order_code,
+        "status": str(cancelled_order.status.value if hasattr(cancelled_order.status, "value") else cancelled_order.status),
+        "cancel_reason": cancelled_order.cancel_reason,
+    }

@@ -50,6 +50,7 @@ from app.schemas.order_histories import (
     OrderListResponse,
     MyOrdersPaginationResponse,
     OrderDetailResponse,
+    CancelOrderRequest
 )
 from app.schemas.stock_log import (
     DEFAULT_LOW_STOCK_THRESHOLD,

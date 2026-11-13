@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
 
@@ -55,3 +55,6 @@ class OrderDetailResponse(BaseModel):
     histories: List[OrderStatusHistoryResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+class CancelOrderRequest(BaseModel):
+    cancel_reason: str = Field(..., min_length=1, max_length=255, description="Lý do hủy đơn hàng")
