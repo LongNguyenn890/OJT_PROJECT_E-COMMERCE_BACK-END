@@ -60,9 +60,31 @@ def get_current_user(
 
 
 def require_customer(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != Role.CUSTOMER and current_user.role != "CUSTOMER":
+    role_val = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if role_val != Role.CUSTOMER.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Chức năng giỏ hàng chỉ dành cho khách hàng (Customer).",
         )
     return current_user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    role_val = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if role_val != Role.ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chức năng chỉ dành cho quản trị viên (Admin).",
+        )
+    return current_user
+
+
+def require_admin_or_staff(current_user: User = Depends(get_current_user)) -> User:
+    role_val = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if role_val not in (Role.ADMIN.value, Role.STAFF.value):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chức năng chỉ dành cho quản trị viên hoặc nhân viên.",
+        )
+    return current_user
+
