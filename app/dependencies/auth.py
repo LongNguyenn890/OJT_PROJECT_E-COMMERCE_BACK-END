@@ -4,7 +4,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import User, Status
+from app.models import User, Status, Role
 from app.core import decode_access_token
 from app.service import get_user_by_id
 
@@ -57,3 +57,12 @@ def get_current_user(
         )
 
     return user
+
+
+def require_customer(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != Role.CUSTOMER and current_user.role != "CUSTOMER":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chức năng giỏ hàng chỉ dành cho khách hàng (Customer).",
+        )
+    return current_user
