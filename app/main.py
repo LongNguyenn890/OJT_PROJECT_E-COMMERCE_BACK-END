@@ -13,6 +13,7 @@ from app import models  # noqa: F401 - import để SQLAlchemy biết các bản
 from app.core.config import settings
 from app.db.session import Base, engine
 from app.routers import auth, cart, health, order_histories, inventory
+from app.routers import auth, health, order_histories, products
 
 
 @asynccontextmanager
@@ -46,6 +47,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(cart.router, prefix="/api")
 app.include_router(order_histories.router, prefix="/api")
 app.include_router(inventory.router, prefix="/api")
+app.include_router(products.router, prefix="/api")
 
 
 @app.get("/")

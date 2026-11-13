@@ -32,3 +32,7 @@ class Product(Base):
     category: Mapped["Category"] = relationship(back_populates="products")
     product_images: Mapped[List["ProductImage"]] = relationship(back_populates="product", cascade="all, delete-orphan")
     stock_logs: Mapped[List["StockLog"]] = relationship(back_populates="product", cascade="all, delete-orphan")
+
+    @property
+    def in_stock(self) -> bool:
+        return self.stock_quantity > 0
