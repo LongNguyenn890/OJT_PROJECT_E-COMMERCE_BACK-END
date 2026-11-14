@@ -1,256 +1,56 @@
+"""Router quản lý tồn kho và biến động kho (Inventory Management Router).
+
+Tài liệu đặc tả liên quan:
+- FR-033: Theo dõi số lượng tồn kho (Xem tất cả sản phẩm, tìm kiếm, lọc danh mục, trạng thái còn/hết/sắp hết).
+- FR-034: Cập nhật số lượng tồn kho (Nhập thêm hàng IMPORT hoặc Điều chỉnh sau kiểm kê ADJUST).
+- FR-035: Kiểm tra tồn kho trước khi đặt hàng (Không cho phép tồn âm, thực hiện nguyên tử).
+- FR-036: Cảnh báo sản phẩm sắp hết hàng (Dựa trên ngưỡng cấu hình, mặc định = 5).
+- BR-05, BR-10, BR-14: Quy tắc nghiệp vụ về tính nguyên tử, hoàn kho và ngưỡng cảnh báo.
+- Phân quyền: Toàn bộ API trong router này yêu cầu quyền Quản trị viên (ADMIN) hoặc Nhân viên (STAFF).
+"""
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Product, StockLog, User, Category
-from app.models.stock_log import ChangeType
+from app.models import User
 from app.dependencies.auth import require_admin_or_staff
-from app.schemas.stock_log import DEFAULT_LOW_STOCK_THRESHOLD
+from app.schemas.stock_log import (
+    DEFAULT_LOW_STOCK_THRESHOLD,
+    StockImportRequest,
+    StockAdjustRequest,
+    StockUpdateRequest,
+    StockOperationResponse,
+    StockLogsPageResponse,
+    InventoryListResponse,
+    LowStockAlertResponse,
+)
+from app.service import inventory as inventory_service
+from app.service.inventory import decrease_stock, increase_stock  # Re-export để các module khác có thể gọi
 
 router = APIRouter(prefix="/admin/inventory", tags=["Inventory"])
 
 
-# --- SCHEMAS ---
-
-class StockImportRequest(BaseModel):
-    quantity_to_add: int = Field(
-        ..., gt=0, description="Số lượng nhập thêm phải lớn hơn 0"
-    )
-    note: Optional[str] = Field(None, description="Lý do hoặc ghi chú nhập hàng")
-
-
-class StockAdjustRequest(BaseModel):
-    new_stock_quantity: int = Field(
-        ..., ge=0, description="Số lượng tồn kho mới sau kiểm kê (>= 0)"
-    )
-    note: Optional[str] = Field(None, description="Lý do điều chỉnh kho")
-
-
-class StockUpdateRequest(BaseModel):
-    """Schema cập nhật tồn kho linh hoạt theo FR-034."""
-    quantity_to_add: Optional[int] = Field(
-        None, gt=0, description="Số lượng nhập thêm (nếu nhập hàng)"
-    )
-    new_stock_quantity: Optional[int] = Field(
-        None, ge=0, description="Số lượng tồn kho mới sau kiểm kê (nếu đặt lại số lượng)"
-    )
-    note: Optional[str] = Field(None, description="Ghi chú / lý do cập nhật tồn kho")
-
-
-class StockLogItemResponse(BaseModel):
-    id: int
-    product_id: int
-    order_id: Optional[int] = None
-    created_by: Optional[int] = None
-    change_type: str
-    quantity_change: int
-    stock_before: int
-    stock_after: int
-    note: Optional[str] = None
-    created_at: Optional[datetime] = None
-from datetime import datetime
-from enum import Enum
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
-
-from db import get_db
-from models import Product, StockLog, User
-
-router = APIRouter(prefix="/api/admin/inventory", tags=["Inventory"])
-
-# --- ENUMS & SCHEMAS ---
-class ChangeTypeEnum(str, Enum):
-  INITIAL = "INITIAL"
-  IMPORT = "IMPORT"
-  ADJUST = "ADJUST"
-  ORDER = "ORDER"
-  CANCEL = "CANCEL"
-
-class StockImportRequest(BaseModel):
-  quantity_to_add: int = Field(
-      ..., gt=0, description="Số lượng nhập thêm phải lớn hơn 0"
-  )
-  note: str | None = Field(None, description="Lý do hoặc ghi chú nhập hàng")
-
-
-class StockAdjustRequest(BaseModel):
-  new_stock_quantity: int = Field(
-      ..., ge=0, description="Số lượng tồn kho mới sau kiểm kê (>= 0)"
-  )
-  note: str | None = Field(None, description="Lý do điều chỉnh kho")
-
-
-# --- CÁC HÀM XỬ LÝ DÙNG CHUNG (Dành cho module Đặt hàng và Đơn hàng gọi) ---
-
-
-def decrease_stock(
-    db: Session,
-    product_id: int,
-    quantity: int,
-    order_id: int | None = None,
-    user_id: int | None = None,
-    note: str | None = None,
-) -> StockLog:
-    """Hàm trừ kho dùng chung cho module Đặt hàng (FR-035, BR-10).
-
-    Chạy trong transaction hiện tại của DB. Không cho phép tồn âm.
-    Pessimistic locking (with_for_update) chống race condition.
-    """
-    if quantity <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Số lượng trừ kho phải lớn hơn 0",
-        )
-
-    product = (
-        db.query(Product).filter(Product.id == product_id).with_for_update().first()
-    )
-
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Không tìm thấy sản phẩm với ID {product_id}",
-        )
-
-    stock_before = product.stock_quantity
-
-    # Kiểm tra tồn kho (BR-10, BR-04, FR-035)
-    if stock_before < quantity:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Sản phẩm '{product.name}' không đủ tồn kho. Còn lại: {stock_before},"
-                f" yêu cầu: {quantity}"
-            ),
-        )
-
-    stock_after = stock_before - quantity
-    product.stock_quantity = stock_after
-
-    # Ghi log biến động kho vào stock_logs
-    stock_log = StockLog(
-        product_id=product_id,
-        order_id=order_id,
-        created_by=user_id,
-        change_type=ChangeType.ORDER,
-        quantity_change=-quantity,
-        stock_before=stock_before,
-        stock_after=stock_after,
-        note=note or (f"Trừ kho cho đơn hàng #{order_id}" if order_id else "Trừ kho"),
-    )
-    db.add(stock_log)
-    return stock_log
-):
-  """Hàm trừ kho dùng chung cho module Đặt hàng (FR-035, BR-10).
-
-  Chạy trong transaction hiện tại của DB. Không cho phép tồn âm.
-  """
-  # Khóa dòng sản phẩm trong CSDL để tránh xung đột đồng thời (Race Condition / Pessimistic Locking)
-  product = (
-      db.query(Product).filter(Product.id == product_id).with_for_update().first()
-  )
-
-  if not product:
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Không tìm thấy sản phẩm với ID {product_id}",
-    )
-
-  stock_before = product.stock_quantity
-
-  # Kiểm tra tồn kho (BR-10, BR-04)
-  if stock_before < quantity:
-    raise HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail=(
-            f"Sản phẩm '{product.name}' không đủ tồn kho. Còn lại: {stock_before},"
-            f" yêu cầu: {quantity}"
-        ),
-    )
-
-  stock_after = stock_before - quantity
-  product.stock_quantity = stock_after
-
-  # Ghi log biến động kho vào stock_logs
-  stock_log = StockLog(
-      product_id=product_id,
-      order_id=order_id,
-      created_by=user_id,
-      change_type=ChangeTypeEnum.ORDER,
-      quantity_change=-quantity,
-      stock_before=stock_before,
-      stock_after=stock_after,
-      note=f"Trừ kho cho đơn hàng #{order_id}" if order_id else "Trừ kho",
-  )
-  db.add(stock_log)
-  # Lưu ý: db.commit() sẽ do hàm gọi ở tầng cao hơn (hoặc transaction chung của tạo đơn) thực hiện.
-
-
-def increase_stock(
-    db: Session,
-    product_id: int,
-    quantity: int,
-    change_type: ChangeType = ChangeType.CANCEL,
-    order_id: int | None = None,
-    user_id: int | None = None,
-    note: str | None = None,
-) -> StockLog:
-    """Hàm hoàn kho/tăng kho dùng chung (khi hủy đơn hàng hoặc nhập kho, v.v.).
-
-    Chạy trong transaction hiện tại.
-    """
-    if quantity <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Số lượng thêm vào kho phải lớn hơn 0",
-        )
-
-    product = (
-        db.query(Product).filter(Product.id == product_id).with_for_update().first()
-    )
-
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Không tìm thấy sản phẩm với ID {product_id}",
-        )
-
-    stock_before = product.stock_quantity
-    stock_after = stock_before + quantity
-    product.stock_quantity = stock_after
-
-    # Ghi log biến động kho
-    stock_log = StockLog(
-        product_id=product_id,
-        order_id=order_id,
-        created_by=user_id,
-        change_type=change_type,
-        quantity_change=quantity,
-        stock_before=stock_before,
-        stock_after=stock_after,
-        note=note
-        or (
-            f"Hoàn kho từ đơn hàng #{order_id}"
-            if order_id
-            else "Cập nhật tăng kho"
-        ),
-    )
-    db.add(stock_log)
-    return stock_log
-
-
-# --- CÁC API QUẢN LÝ KHO DÀNH CHO ADMIN / STAFF (FR-033, FR-034, FR-036) ---
-
-@router.get("", summary="Theo dõi số lượng tồn kho (FR-033, FR-036)")
+@router.get(
+    "",
+    response_model=InventoryListResponse,
+    summary="Theo dõi số lượng tồn kho toàn bộ sản phẩm (FR-033, FR-036)",
+    description=(
+        "Admin/Nhân viên theo dõi số lượng tồn kho của tất cả sản phẩm trong hệ thống (bao gồm cả sản phẩm đang ẩn).\n"
+        "- **Chức năng**:\n"
+        "  + Tìm kiếm theo tên sản phẩm (`keyword`).\n"
+        "  + Lọc theo danh mục (`category_id`).\n"
+        "  + Lọc theo tình trạng tồn kho (`status`: `IN_STOCK`, `LOW_STOCK`, `OUT_OF_STOCK`).\n"
+        "  + Đánh giá trạng thái tồn kho dựa trên ngưỡng cảnh báo (`threshold`, mặc định: 5).\n"
+        "  + Thống kê nhanh số lượng sản phẩm sắp hết (`low_stock_count`) và hết hàng (`out_of_stock_count`).\n"
+        "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`."
+    ),
+)
 def get_inventory_list(
-    keyword: Optional[str] = Query(None, description="Tìm theo tên sản phẩm"),
-    category_id: Optional[int] = Query(None, description="Lọc theo danh mục"),
+    keyword: Optional[str] = Query(None, description="Từ khóa tìm kiếm theo tên sản phẩm"),
+    category_id: Optional[int] = Query(None, description="Lọc sản phẩm theo ID danh mục"),
     status_filter: Optional[str] = Query(
         None,
         alias="status",
@@ -259,329 +59,144 @@ def get_inventory_list(
     threshold: int = Query(
         DEFAULT_LOW_STOCK_THRESHOLD,
         ge=0,
-        description="Ngưỡng cảnh báo sắp hết hàng (mặc định 5)",
+        description="Ngưỡng cảnh báo sắp hết hàng (mặc định = 5)",
     ),
-    page: int = Query(1, ge=1, description="Trang hiện tại"),
-    page_size: int = Query(20, ge=1, le=100, description="Số lượng mỗi trang"),
+    page: int = Query(1, ge=1, description="Số trang hiện tại (bắt đầu từ 1)"),
+    page_size: int = Query(20, ge=1, le=100, description="Số lượng sản phẩm trên mỗi trang"),
     current_user: User = Depends(require_admin_or_staff),
     db: Session = Depends(get_db),
 ):
-    """Admin/Nhân viên xem tồn kho của tất cả sản phẩm (kể cả sản phẩm đang ẩn) (FR-033).
-
-    Hỗ trợ tìm kiếm theo tên, lọc theo danh mục, lọc theo tình trạng tồn kho và cảnh báo sắp hết hàng (FR-036).
-    """
-    query = db.query(Product).options(joinedload(Product.category))
-
-    if keyword and keyword.strip():
-        query = query.filter(Product.name.ilike(f"%{keyword.strip()}%"))
-
-    if category_id is not None:
-        query = query.filter(Product.category_id == category_id)
-
-    products = query.order_by(Product.id.asc()).all()
-
-    items = []
-    low_stock_count = 0
-    out_of_stock_count = 0
-
-    for p in products:
-        if p.stock_quantity == 0:
-            status_label = "Hết hàng"
-            status_code = "OUT_OF_STOCK"
-            out_of_stock_count += 1
-            low_stock_count += 1
-        elif p.stock_quantity <= threshold:
-            status_label = "Sắp hết"
-            status_code = "LOW_STOCK"
-            low_stock_count += 1
-        else:
-            status_label = "Còn hàng"
-            status_code = "IN_STOCK"
-
-        # Lọc theo tình trạng nếu có yêu cầu
-        if status_filter:
-            sf = status_filter.strip().upper()
-            if sf in ("OUT_OF_STOCK", "HẾT HÀNG", "HET HANG") and status_code != "OUT_OF_STOCK":
-                continue
-            elif sf in ("LOW_STOCK", "SẮP HẾT", "SAP HET") and status_code != "LOW_STOCK":
-                continue
-            elif sf in ("IN_STOCK", "CÒN HÀNG", "CON HANG") and status_code != "IN_STOCK":
-                continue
-
-        category_name = p.category.name if p.category else None
-
-        items.append({
-            "product_id": p.id,
-            "name": p.name,
-            "category_id": p.category_id,
-            "category_name": category_name,
-            "price": p.price,
-            "stock_quantity": p.stock_quantity,
-            "is_visible": p.is_visible,
-            "status": status_label,
-            "status_code": status_code,
-            "threshold": threshold,
-        })
-
-    total = len(items)
-    start = (page - 1) * page_size
-    paginated_items = items[start:start + page_size]
-
-    return {
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "threshold": threshold,
-        "low_stock_count": low_stock_count,
-        "out_of_stock_count": out_of_stock_count,
-        "items": paginated_items,
-    }
+    """Admin/Nhân viên xem tồn kho của tất cả sản phẩm kèm bộ lọc và phân trang (FR-033)."""
+    return inventory_service.get_inventory_list(
+        db=db,
+        keyword=keyword,
+        category_id=category_id,
+        status_filter=status_filter,
+        threshold=threshold,
+        page=page,
+        page_size=page_size,
+    )
 
 
-@router.get("/low-stock", summary="Cảnh báo sản phẩm sắp hết hàng (FR-036)")
+@router.get(
+    "/low-stock",
+    response_model=LowStockAlertResponse,
+    summary="Cảnh báo danh sách sản phẩm sắp hết hàng (FR-036)",
+    description=(
+        "Lấy danh sách các sản phẩm có tồn kho thấp hơn hoặc bằng ngưỡng cảnh báo (`stock_quantity <= threshold`).\n"
+        "- **Quy tắc**:\n"
+        "  + Tồn kho = 0: Đánh dấu `is_out_of_stock = True` (Hết hàng).\n"
+        "  + 0 < Tồn kho <= Ngưỡng: Đánh dấu `is_low_stock = True` (Sắp hết hàng).\n"
+        "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`."
+    ),
+)
 def get_low_stock_alerts(
     threshold: int = Query(
         DEFAULT_LOW_STOCK_THRESHOLD,
         ge=0,
-        description="Ngưỡng cảnh báo sắp hết hàng",
+        description="Ngưỡng cảnh báo tồn kho (mặc định = 5)",
     ),
     current_user: User = Depends(require_admin_or_staff),
     db: Session = Depends(get_db),
 ):
-    """Lấy danh sách các sản phẩm có tồn kho thấp hơn hoặc bằng ngưỡng cảnh báo (FR-036)."""
-    products = (
-        db.query(Product)
-        .options(joinedload(Product.category))
-        .filter(Product.stock_quantity <= threshold)
-        .order_by(Product.stock_quantity.asc())
-        .all()
-    )
-
-    items = []
-    for p in products:
-        items.append({
-            "product_id": p.id,
-            "product_name": p.name,
-            "category_name": p.category.name if p.category else None,
-            "current_stock": p.stock_quantity,
-            "threshold": threshold,
-            "is_out_of_stock": p.stock_quantity == 0,
-            "is_low_stock": 0 < p.stock_quantity <= threshold,
-        })
-
-    return {
-        "threshold": threshold,
-        "total_low_stock_products": len(items),
-        "items": items,
-    }
-    change_type: ChangeTypeEnum = ChangeTypeEnum.CANCEL,
-    order_id: int | None = None,
-    user_id: int | None = None,
-    note: str | None = None,
-):
-  """Hàm hoàn kho/tăng kho dùng chung (khi hủy đơn hàng hoặc nhập kho, v.v.).
-
-  Chạy trong transaction hiện tại.
-  """
-  product = (
-      db.query(Product).filter(Product.id == product_id).with_for_update().first()
-  )
-
-  if not product:
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Không tìm thấy sản phẩm với ID {product_id}",
-    )
-
-  stock_before = product.stock_quantity
-  stock_after = stock_before + quantity
-  product.stock_quantity = stock_after
-
-  # Ghi log biến động kho
-  stock_log = StockLog(
-      product_id=product_id,
-      order_id=order_id,
-      created_by=user_id,
-      change_type=change_type,
-      quantity_change=quantity,
-      stock_before=stock_before,
-      stock_after=stock_after,
-      note=note
-      or (
-          f"Hoàn kho từ đơn hàng #{order_id}"
-          if order_id
-          else "Cập nhật tăng kho"
-      ),
-  )
-  db.add(stock_log)
+    """Lấy danh sách các sản phẩm chạm ngưỡng cảnh báo tồn kho (FR-036)."""
+    return inventory_service.get_low_stock_alerts(db=db, threshold=threshold)
 
 
-# --- CÁC API QUẢN LÝ KHO DÀNH CHO ADMIN (FR-033, FR-034) ---
-
-
-@router.get("", summary="Theo dõi số lượng tồn kho (FR-033)")
-def get_inventory_list(db: Session = Depends(get_db)):
-  """Admin xem tồn kho của tất cả sản phẩm (kể cả sản phẩm đang ẩn)."""
-  products = db.query(Product).all()
-  result = []
-  for p in products:
-    # Xác định trạng thái tồn kho dựa theo quy tắc cảnh báo (BR-14: ngưỡng mặc định = 10)
-    threshold = 10
-    if p.stock_quantity == 0:
-      status_label = "Hết hàng"
-    elif p.stock_quantity <= threshold:
-      status_label = "Sắp hết"
-    else:
-      status_label = "Còn hàng"
-
-    result.append({
-        "product_id": p.id,
-        "name": p.name,
-        "category_id": p.category_id,
-        "price": p.price,
-        "stock_quantity": p.stock_quantity,
-        "is_visible": p.is_visible,
-        "status": status_label,
-    })
-  return {"total": len(result), "items": result}
-
-
-@router.put("/{product_id}/import", summary="Nhập thêm hàng cho sản phẩm (FR-034)")
+@router.put(
+    "/{product_id}/import",
+    response_model=StockOperationResponse,
+    summary="Nhập thêm hàng cho sản phẩm (FR-034)",
+    description=(
+        "Admin/Nhân viên nhập thêm một lượng hàng vào kho cho một sản phẩm cụ thể.\n"
+        "- **Quy tắc**:\n"
+        "  + `quantity_to_add` phải là số nguyên dương (> 0).\n"
+        "  + Tồn kho mới = Tồn kho cũ + Số lượng nhập thêm.\n"
+        "  + Tự động ghi nhật ký biến động kho `StockLog` với loại `IMPORT` và lưu ID người thực hiện.\n"
+        "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`.\n"
+        "- **Mã lỗi**: `404 Not Found` nếu sản phẩm không tồn tại; `400 Bad Request` nếu số lượng không hợp lệ."
+    ),
+)
 def import_stock(
     product_id: int,
     payload: StockImportRequest,
     current_user: User = Depends(require_admin_or_staff),
     db: Session = Depends(get_db),
 ):
-    """Admin/Nhân viên cộng thêm số lượng nhập vào kho (FR-034).
-
-    Luôn ghi nhận StockLog với loại IMPORT và mã người thực hiện.
-    """
-    try:
-        stock_log = increase_stock(
-            db=db,
-            product_id=product_id,
-            quantity=payload.quantity_to_add,
-            change_type=ChangeType.IMPORT,
-            user_id=current_user.id,
-            note=payload.note or "Nhập thêm hàng",
-        )
-        db.commit()
-        return {
-            "message": "Nhập hàng thành công",
-            "product_id": product_id,
-            "added_quantity": payload.quantity_to_add,
-            "stock_before": stock_log.stock_before,
-            "stock_after": stock_log.stock_after,
-        }
-    except Exception as e:
-        db.rollback()
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    """Thực hiện nhập thêm hàng vào kho cho sản phẩm."""
+    return inventory_service.import_stock(
+        db=db,
+        product_id=product_id,
+        quantity_to_add=payload.quantity_to_add,
+        note=payload.note,
+        user_id=current_user.id,
+    )
 
 
-@router.put("/{product_id}/adjust", summary="Điều chỉnh tồn kho có lý do / kiểm kê (FR-034)")
+@router.put(
+    "/{product_id}/adjust",
+    response_model=StockOperationResponse,
+    summary="Điều chỉnh tồn kho sau kiểm kê (FR-034)",
+    description=(
+        "Admin/Nhân viên đặt lại chính xác số lượng tồn kho thực tế sau khi kiểm kê kho định kỳ.\n"
+        "- **Quy tắc**:\n"
+        "  + `new_stock_quantity` phải là số nguyên không âm (>= 0).\n"
+        "  + Độ chênh lệch `quantity_change = new_stock_quantity - stock_before`.\n"
+        "  + Tự động ghi nhận `StockLog` với loại `ADJUST` kèm lý do giải trình.\n"
+        "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`.\n"
+        "- **Mã lỗi**: `404 Not Found` nếu sản phẩm không tồn tại; `400 Bad Request` nếu số lượng < 0."
+    ),
+)
 def adjust_stock(
     product_id: int,
     payload: StockAdjustRequest,
     current_user: User = Depends(require_admin_or_staff),
     db: Session = Depends(get_db),
 ):
-    """Admin/Nhân viên đặt lại số lượng tồn kho mới sau khi kiểm kê (đảm bảo không âm) (FR-034)."""
-    try:
-        product = (
-            db.query(Product)
-            .filter(Product.id == product_id)
-            .with_for_update()
-            .first()
-        )
-        if not product:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Không tìm thấy sản phẩm với ID {product_id}",
-            )
-
-        stock_before = product.stock_quantity
-        new_stock = payload.new_stock_quantity
-        quantity_change = new_stock - stock_before
-
-        if quantity_change == 0:
-            return {
-                "message": "Số lượng tồn kho không thay đổi",
-                "product_id": product_id,
-                "stock_before": stock_before,
-                "stock_after": new_stock,
-                "quantity_change": 0,
-            }
-
-        product.stock_quantity = new_stock
-
-        # Ghi log điều chỉnh (ADJUST)
-        stock_log = StockLog(
-            product_id=product_id,
-            created_by=current_user.id,
-            change_type=ChangeType.ADJUST,
-            quantity_change=quantity_change,
-            stock_before=stock_before,
-            stock_after=new_stock,
-            note=payload.note or "Điều chỉnh tồn kho do kiểm kê",
-        )
-        db.add(stock_log)
-        db.commit()
-
-        return {
-            "message": "Cập nhật tồn kho thành công",
-            "product_id": product_id,
-            "stock_before": stock_before,
-            "stock_after": new_stock,
-            "quantity_change": quantity_change,
-        }
-    except Exception as e:
-        db.rollback()
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+    """Điều chỉnh lại số lượng tồn kho theo kết quả kiểm kê thực tế."""
+    return inventory_service.adjust_stock(
+        db=db,
+        product_id=product_id,
+        new_stock_quantity=payload.new_stock_quantity,
+        note=payload.note,
+        user_id=current_user.id,
+    )
 
 
-@router.put("/{product_id}", summary="Cập nhật tồn kho linh hoạt (FR-034)")
+@router.put(
+    "/{product_id}",
+    response_model=StockOperationResponse,
+    summary="Cập nhật tồn kho linh hoạt theo chuẩn SRS (FR-034)",
+    description=(
+        "Endpoint tổng hợp cập nhật tồn kho theo bảng đặc tả SRS: `PUT /api/admin/inventory/{product_id}`.\n"
+        "- Hỗ trợ 2 chế độ tự động phân nhánh:\n"
+        "  1. **Nhập thêm hàng**: Truyền trường `quantity_to_add` (> 0) -> Chuyển sang xử lý `IMPORT`.\n"
+        "  2. **Kiểm kê kho**: Truyền trường `new_stock_quantity` (>= 0) -> Chuyển sang xử lý `ADJUST`.\n"
+        "- **Mã lỗi**: `400 Bad Request` nếu không cung cấp một trong hai trường trên."
+    ),
+)
 def update_stock(
     product_id: int,
     payload: StockUpdateRequest,
     current_user: User = Depends(require_admin_or_staff),
     db: Session = Depends(get_db),
 ):
-    """Endpoint cập nhật tồn kho chung theo đặc tả SRS (PUT /api/admin/inventory/{product_id}).
-
-    Hỗ trợ cả 2 chế độ:
-    - Nhập thêm hàng: truyền `quantity_to_add`
-    - Điều chỉnh kiểm kê: truyền `new_stock_quantity`
-    """
+    """Cập nhật số lượng tồn kho linh hoạt (hỗ trợ cả nhập hàng và kiểm kê)."""
     if payload.quantity_to_add is not None:
-        import_req = StockImportRequest(
+        return inventory_service.import_stock(
+            db=db,
+            product_id=product_id,
             quantity_to_add=payload.quantity_to_add,
             note=payload.note,
-        )
-        return import_stock(
-            product_id=product_id,
-            payload=import_req,
-            current_user=current_user,
-            db=db,
+            user_id=current_user.id,
         )
     elif payload.new_stock_quantity is not None:
-        adjust_req = StockAdjustRequest(
+        return inventory_service.adjust_stock(
+            db=db,
+            product_id=product_id,
             new_stock_quantity=payload.new_stock_quantity,
             note=payload.note,
-        )
-        return adjust_stock(
-            product_id=product_id,
-            payload=adjust_req,
-            current_user=current_user,
-            db=db,
+            user_id=current_user.id,
         )
     else:
         raise HTTPException(
@@ -590,141 +205,28 @@ def update_stock(
         )
 
 
-@router.get("/{product_id}/logs", summary="Xem lịch sử biến động kho của sản phẩm (FR-034)")
+@router.get(
+    "/{product_id}/logs",
+    response_model=StockLogsPageResponse,
+    summary="Xem lịch sử biến động kho của sản phẩm (FR-034, Audit Trail)",
+    description=(
+        "Xem toàn bộ nhật ký lịch sử thay đổi tồn kho của một sản phẩm (các lần nhập hàng, tạo đơn trừ kho, hủy đơn hoàn kho, kiểm kê).\n"
+        "- **Sắp xếp**: Mới nhất lên đầu (`created_at DESC`).\n"
+        "- **Hỗ trợ phân trang**: `page`, `page_size`.\n"
+        "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`."
+    ),
+)
 def get_product_stock_logs(
     product_id: int,
-    page: int = Query(1, ge=1, description="Trang hiện tại"),
-    page_size: int = Query(20, ge=1, le=100, description="Số lượng mỗi trang"),
+    page: int = Query(1, ge=1, description="Số trang hiện tại (bắt đầu từ 1)"),
+    page_size: int = Query(20, ge=1, le=100, description="Số dòng nhật ký mỗi trang"),
     current_user: User = Depends(require_admin_or_staff),
     db: Session = Depends(get_db),
 ):
-    """Xem toàn bộ nhật ký thay đổi số lượng tồn kho của một sản phẩm."""
-    product = db.query(Product).filter(Product.id == product_id).first()
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Không tìm thấy sản phẩm với ID {product_id}",
-        )
-
-    query = db.query(StockLog).filter(StockLog.product_id == product_id)
-    total = query.count()
-    logs = (
-        query.order_by(StockLog.created_at.desc(), StockLog.id.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
-    )
-
-    items = [
-        StockLogItemResponse(
-            id=log.id,
-            product_id=log.product_id,
-            order_id=log.order_id,
-            created_by=log.created_by,
-            change_type=log.change_type.value if hasattr(log.change_type, "value") else str(log.change_type),
-            quantity_change=log.quantity_change,
-            stock_before=log.stock_before,
-            stock_after=log.stock_after,
-            note=log.note,
-            created_at=log.created_at,
-        )
-        for log in logs
-    ]
-
-    return {
-        "product_id": product_id,
-        "product_name": product.name,
-        "current_stock": product.stock_quantity,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "items": items,
-    }
-    # current_admin: User = Depends(get_current_admin), # Thêm xác thực Admin theo FR-006
-    db: Session = Depends(get_db),
-):
-  """Admin cộng thêm số lượng nhập vào kho.
-
-  Luôn ghi nhận StockLog với loại IMPORT.
-  """
-  try:
-    # Gọi hàm tăng kho trong transaction
-    increase_stock(
+    """Xem danh sách các lần biến động tồn kho của một sản phẩm kèm phân trang."""
+    return inventory_service.get_product_stock_logs(
         db=db,
         product_id=product_id,
-        quantity=payload.quantity_to_add,
-        change_type=ChangeTypeEnum.IMPORT,
-        user_id=1,  # Thay thế bằng ID của Admin thực tế từ token
-        note=payload.note or "Nhập thêm hàng",
-    )
-    db.commit()
-    return {
-        "message": "Nhập hàng thành công",
-        "product_id": product_id,
-        "added_quantity": payload.quantity_to_add,
-    }
-  except Exception as e:
-    db.rollback()
-    if isinstance(e, HTTPException):
-      raise e
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-    )
-
-
-@router.put(
-    "/{product_id}/adjust", summary="Điều chỉnh tồn kho có lý do / kiểm kê (FR-034)"
-)
-def adjust_stock(
-    product_id: int,
-    payload: StockAdjustRequest,
-    db: Session = Depends(get_db),
-):
-  """Admin đặt lại số lượng tồn kho mới sau khi kiểm kê (đảm bảo không âm)."""
-  try:
-    product = (
-        db.query(Product)
-        .filter(Product.id == product_id)
-        .with_for_update()
-        .first()
-    )
-    if not product:
-      raise HTTPException(
-          status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy sản phẩm"
-      )
-
-    stock_before = product.stock_quantity
-    new_stock = payload.new_stock_quantity
-    quantity_change = new_stock - stock_before
-
-    if quantity_change == 0:
-      return {"message": "Số lượng tồn kho không thay đổi", "stock": stock_before}
-
-    product.stock_quantity = new_stock
-
-    # Ghi log điều chỉnh (ADJUST)
-    stock_log = StockLog(
-        product_id=product_id,
-        created_by=1,  # ID Admin
-        change_type=ChangeTypeEnum.ADJUST,
-        quantity_change=quantity_change,
-        stock_before=stock_before,
-        stock_after=new_stock,
-        note=payload.note or "Điều chỉnh tồn kho do kiểm kê",
-    )
-    db.add(stock_log)
-    db.commit()
-
-    return {
-        "message": "Cập nhật tồn kho thành công",
-        "product_id": product_id,
-        "stock_before": stock_before,
-        "stock_after": new_stock,
-    }
-  except Exception as e:
-    db.rollback()
-    if isinstance(e, HTTPException):
-      raise e
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        page=page,
+        page_size=page_size,
     )
