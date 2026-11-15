@@ -24,12 +24,14 @@ router = APIRouter(prefix="/cart", tags=["Cart"])
 @router.get(
     "",
     response_model=CartResponse,
-    summary="Xem chi tiết giỏ hàng và tổng tiền (FR-021)",
+    summary="Xem chi tiết giỏ hàng và tính tổng tiền (FR-021)",
     description=(
         "Khách hàng xem toàn bộ các sản phẩm hiện có trong giỏ hàng của mình.\n"
-        "- **Tính toán tự động**: Tạm tính từng dòng, tổng tiền hàng, phí vận chuyển (mặc định 0đ theo chính sách).\n"
-        "- **Cảnh báo tích hợp** (`warnings`): Tự động phát hiện nếu sản phẩm bị đổi giá, sản phẩm hết hàng hoặc bị ẩn.\n"
-        "- **Kiểm tra thanh toán** (`can_checkout`): Chỉ cho phép tiến hành đặt hàng khi tất cả sản phẩm trong giỏ còn hàng.\n"
+        "- **Thành tiền từng dòng & tạm tính**: Giá được tính trực tiếp từ server, đảm bảo tính bảo mật và chính xác.\n"
+        "- **Phí vận chuyển**: Miễn phí vận chuyển cho đơn hàng từ 500.000đ (dưới 500.000đ là 30.000đ; giỏ rỗng là 0đ).\n"
+        "- **Tổng tiền thanh toán**: Tạm tính + Phí vận chuyển.\n"
+        "- **Cảnh báo biến động**: Tự động phát hiện và cảnh báo khi giá sản phẩm hoặc tồn kho đã thay đổi so với thời điểm thêm vào giỏ.\n"
+        "- **Kiểm tra đặt hàng** (`can_checkout`): Chỉ cho phép tiến hành đặt hàng khi giỏ không rỗng và tất cả sản phẩm đều đủ hàng, không bị ẩn.\n"
         "- **Quyền hạn**: Chỉ dành cho tài khoản `CUSTOMER`."
     ),
 )
