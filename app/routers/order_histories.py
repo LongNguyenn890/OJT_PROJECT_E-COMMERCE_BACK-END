@@ -2,6 +2,7 @@ from typing import Optional
 from enum import Enum
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from datetime import date
 
 from app.db.session import get_db
 from app.dependencies.auth import get_current_user
@@ -10,17 +11,21 @@ from app.models.user import User
 from app.schemas import (
     MyOrdersPaginationResponse,
     OrderDetailResponse,
-)
-
-from app.schemas import (
-    MyOrdersPaginationResponse,
-    OrderDetailResponse,
-    CancelOrderRequest 
+    CancelOrderRequest,
+    UpdateOrderStatusRequest 
 )
 
 from app.service import order_status_histories as crud_order_histories
 
 router = APIRouter(prefix="/orders", tags=["Order Histories"])
+
+admin_router = APIRouter(prefix="/admin/orders", tags=["Admin Orders"])
+
+VALID_TRANSITIONS = {
+    "PENDING": ["CONFIRMED"],
+    "CONFIRMED": ["SHIPPING"],
+    "SHIPPING": ["COMPLETED"],
+}
 
 class OrderStatusFilter(str, Enum):
     PENDING = "PENDING"
@@ -159,4 +164,96 @@ def cancel_order_endpoint(
         "order_code": cancelled_order.order_code,
         "status": str(cancelled_order.status.value if hasattr(cancelled_order.status, "value") else cancelled_order.status),
         "cancel_reason": cancelled_order.cancel_reason,
+    }
+
+
+@admin_router.get("", response_model=MyOrdersPaginationResponse)
+def read_all_orders(
+    status_filter: Optional[OrderStatusFilter] = Query(None, alias="status", description="Lọc theo trạng thái"),
+    from_date: Optional[date] = Query(None, description="Từ ngày (YYYY-MM-DD)"),
+    to_date: Optional[date] = Query(None, description="Đến ngày (YYYY-MM-DD)"),
+    keyword: Optional[str] = Query(None, description="Tìm theo mã đơn hoặc SĐT người nhận"),
+    page: int = Query(1, ge=1, description="Trang hiện tại"),
+    page_size: int = Query(10, ge=1, le=50, description="Số lượng mỗi trang"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin xem danh sách tất cả đơn hàng (FR-024)."""
+    user_role = str(getattr(current_user, "role", "")).upper()
+    if user_role not in ["ADMIN", "STAFF"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền truy cập chức năng này",
+        )
+    # Kiểm tra ngày hợp lệ
+    if from_date and to_date and from_date > to_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Ngày bắt đầu (from_date) không được lớn hơn ngày kết thúc (to_date)",
+        )
+    status_val = status_filter.value if status_filter else None
+    total, orders = crud_order_histories.get_all_orders_admin(
+        db=db,
+        status=status_val,
+        from_date=from_date,
+        to_date=to_date,
+        keyword=keyword,
+        page=page,
+        page_size=page_size,
+    )
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": orders,
+    }
+@admin_router.put("/{id}/status")
+def update_order_status(
+    id: int,
+    request: UpdateOrderStatusRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin cập nhật trạng thái đơn hàng theo đúng luồng (FR-026)."""
+    user_role = str(getattr(current_user, "role", "")).upper()
+    if user_role not in ["ADMIN", "STAFF"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền thực hiện thao tác này",
+        )
+    order = crud_order_histories.get_order_by_id(db=db, order_id=id)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Đơn hàng không tồn tại",
+        )
+    current_status = str(order.status.value if hasattr(order.status, "value") else order.status).upper()
+    new_status = request.status.upper()
+    # 1. Chặn nếu cố chuyển sang CANCELLED (phải dùng API cancel để hoàn kho)
+    if new_status == "CANCELLED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Không thể chuyển sang trạng thái Hủy ở đây. Vui lòng dùng chức năng Hủy đơn hàng để có lý do và hoàn kho",
+        )
+    # 2. Kiểm tra trạng thái hiện tại có được phép chuyển tiếp không
+    allowed_next_statuses = VALID_TRANSITIONS.get(current_status, [])
+    if new_status not in allowed_next_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Chuyển trạng thái không hợp lệ! Không thể chuyển từ {current_status} sang {new_status}",
+        )
+    # 3. Cập nhật trạng thái
+    updated_order = crud_order_histories.update_order_status_admin(
+        db=db,
+        order=order,
+        new_status=new_status,
+        user_id=current_user.id,
+        note=request.note,
+    )
+    return {
+        "message": "Cập nhật trạng thái đơn hàng thành công",
+        "order_id": updated_order.id,
+        "order_code": updated_order.order_code,
+        "old_status": current_status,
+        "new_status": str(updated_order.status.value if hasattr(updated_order.status, "value") else updated_order.status),
     }

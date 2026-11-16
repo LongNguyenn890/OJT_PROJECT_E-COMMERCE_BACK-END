@@ -1,5 +1,7 @@
 from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
+from datetime import date, datetime
+from sqlalchemy import func, or_
 
 from app.models.order import Order
 from app.models.order_item import OrderItem
@@ -84,6 +86,69 @@ def cancel_order(db: Session, order: Order, user_id: int, cancel_reason: str) ->
             )
             db.add(stock_log)
     # 4. Lưu toàn bộ thay đổi trong 1 giao dịch
+    db.commit()
+    db.refresh(order)
+    return order
+
+def get_all_orders_admin(
+    db: Session,
+    status: Optional[str] = None,
+    from_date: Optional[date] = None,
+    to_date: Optional[date] = None,
+    keyword: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> Tuple[int, List[Order]]:
+    """Lấy danh sách tất cả đơn hàng cho Admin có lọc và phân trang (FR-024)."""
+    query = db.query(Order)
+    # Lọc theo trạng thái
+    if status:
+        query = query.filter(Order.status == status)
+    # Lọc theo khoảng ngày tạo đơn
+    if from_date:
+        query = query.filter(func.date(Order.created_at) >= from_date)
+    if to_date:
+        query = query.filter(func.date(Order.created_at) <= to_date)
+    # Tìm kiếm theo mã đơn hoặc số điện thoại
+    if keyword:
+        kw = f"%{keyword.strip()}%"
+        query = query.filter(
+            or_(
+                Order.order_code.like(kw),
+                Order.receiver_phone.like(kw),
+            )
+        )
+    total = query.count()
+    orders = (
+        query.order_by(Order.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return total, orders
+def update_order_status_admin(
+    db: Session,
+    order: Order,
+    new_status: str,
+    user_id: int,
+    note: Optional[str] = None,
+) -> Order:
+    """Cập nhật trạng thái đơn hàng và ghi lại lịch sử (FR-026)."""
+    old_status = str(order.status.value if hasattr(order.status, "value") else order.status)
+    # Cập nhật trạng thái mới
+    order.status = new_status
+    # Nếu hoàn thành thì lưu thời điểm hoàn thành
+    if new_status == "COMPLETED":
+        order.completed_at = datetime.now()
+    # Ghi lại 1 dòng lịch sử chuyển đổi trạng thái
+    history = OrderStatusHistory(
+        order_id=order.id,
+        changed_by=user_id,
+        old_status=old_status,
+        new_status=new_status,
+        note=note,
+    )
+    db.add(history)
     db.commit()
     db.refresh(order)
     return order
