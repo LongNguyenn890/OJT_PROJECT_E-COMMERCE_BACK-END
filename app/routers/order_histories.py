@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.dependencies import require_customer
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas import (
@@ -20,9 +21,11 @@ from app.schemas import (
     OrderDetailResponse,
     OrderStatusHistoryResponse,
 )
+from app.schemas.order import OrderCreate, OrderResponse
 from app.service import order_status_histories as crud_order_histories
+from app.service import order as order_service
 
-router = APIRouter(prefix="/orders", tags=["Order Histories"])
+router = APIRouter(prefix="/orders", tags=["Orders"])
 
 
 class OrderStatusFilter(str, Enum):
@@ -33,6 +36,38 @@ class OrderStatusFilter(str, Enum):
     DELIVERED = "DELIVERED"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
+
+
+@router.post(
+    "",
+    response_model=OrderResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Tạo đơn hàng từ giỏ hàng trong Transaction (FR-022, FR-023, FR-035)",
+    description=(
+        "Khách hàng xác nhận thông tin giao hàng và tạo đơn hàng chính thức từ giỏ hàng.\n"
+        "- **Quy trình Transaction nguyên tử**:\n"
+        "  1. Kiểm tra giỏ hàng: Giỏ không được rỗng, không chứa sản phẩm bị ẩn.\n"
+        "  2. Tính toán tiền hàng ở server: Tạm tính, phí ship (miễn phí từ 500k), tổng thanh toán.\n"
+        "  3. Trừ tồn kho thông qua module Kho (`decrease_stock` với SELECT FOR UPDATE chống race condition).\n"
+        "  4. Tạo đơn hàng và chi tiết đơn hàng (lưu snapshot giá và tên lúc đặt).\n"
+        "  5. Ghi nhận lịch sử trạng thái ban đầu (`PENDING`).\n"
+        "  6. Xóa sạch giỏ hàng.\n"
+        "- **Rollback**: Bất kỳ lỗi nào (như thiếu tồn kho) sẽ hoàn tác 100% dữ liệu.\n"
+        "- **Quyền hạn yêu cầu**: Khách hàng đã đăng nhập (`CUSTOMER`).\n"
+        "- **Mã trạng thái**: `201 Created` kèm thông tin đơn hàng; `400 Bad Request` nếu giỏ rỗng/sản phẩm ẩn; `409 Conflict` nếu không đủ tồn kho."
+    ),
+)
+def create_order_endpoint(
+    data: OrderCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_customer),
+):
+    """Khách hàng tạo đơn hàng mới từ giỏ hàng (FR-022, FR-023, FR-035)."""
+    return order_service.create_order(
+        db=db,
+        user_id=current_user.id,
+        data=data,
+    )
 
 
 @router.get(
