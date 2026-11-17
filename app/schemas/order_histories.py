@@ -1,18 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
 
-# Schema cho từng món hàng trong đơn
-class OrderItemResponse(BaseModel):
-    id: int
-    product_id: int
-    product_name: str
-    unit_price: int
-    quantity: int
-    subtotal: int
+from app.schemas.order_item import OrderItemResponse
 
-    class Config:
-        from_attributes = True
 
 # Schema cho lịch sử trạng thái
 class OrderStatusHistoryResponse(BaseModel):
@@ -22,20 +13,21 @@ class OrderStatusHistoryResponse(BaseModel):
     note: Optional[str] = None
     changed_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
 
 # Schema hiển thị danh sách đơn (ngắn gọn)
 class OrderListResponse(BaseModel):
     id: int
     order_code: str
     receiver_name: str
+    receiver_phone: Optional[str] = None
     total_amount: int
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
 
 # Schema phản hồi phân trang danh sách đơn
 class MyOrdersPaginationResponse(BaseModel):
@@ -43,6 +35,9 @@ class MyOrdersPaginationResponse(BaseModel):
     page: int
     page_size: int
     items: List[OrderListResponse]
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 # Schema hiển thị chi tiết một đơn
 class OrderDetailResponse(BaseModel):
@@ -60,5 +55,12 @@ class OrderDetailResponse(BaseModel):
     items: List[OrderItemResponse] = []
     histories: List[OrderStatusHistoryResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+class CancelOrderRequest(BaseModel):
+    cancel_reason: str = Field(..., min_length=1, max_length=255, description="Lý do hủy đơn hàng")
+
+# Schema nhận dữ liệu cập nhật trạng thái đơn (FR-026)
+class UpdateOrderStatusRequest(BaseModel):
+    status: str = Field(..., description="Trạng thái mới: CONFIRMED, SHIPPING, COMPLETED")
+    note: Optional[str] = Field(None, max_length=255, description="Ghi chú nếu có")

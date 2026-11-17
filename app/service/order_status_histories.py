@@ -1,90 +1,226 @@
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+"""Tầng xử lý dữ liệu và nghiệp vụ cho Đơn hàng và Lịch sử trạng thái (Order & Histories Service).
+
+Tài liệu đặc tả liên quan:
+- FR-025: Xem chi tiết đơn hàng (Sản phẩm, tổng tiền, lịch sử chuyển trạng thái).
+- FR-028: Xem danh sách đơn hàng của khách hàng (hoặc toàn bộ đơn hàng cho Admin/Staff).
+"""
+from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
+from datetime import date, datetime
+from sqlalchemy import func, or_
 
-from app.db.session import get_db
-# Import chuẩn từ dependencies/auth.py và models/user.py
-from app.dependencies.auth import get_current_user
-from app.models.user import User
-
-from app.schemas import (
-    OrderItemResponse,
-    OrderDetailResponse,
-)
-from app.service import order_status_histories as crud_order_histories
-
-router = APIRouter(prefix="/orders", tags=["Order Histories"])
-
-VALID_STATUSES = ["PENDING", "CONFIRMED", "SHIPPING", "DELIVERED", "COMPLETED", "CANCELLED"]
+from app.models.order import Order
+from app.models.order_item import OrderItem
+from app.models.order_status_histories import OrderStatusHistory
+from app.models.product import Product
+from app.models.stock_log import StockLog
 
 
-@router.get("/my", response_model=OrderItemResponse)
-def read_my_orders(
-    status_filter: Optional[str] = Query(None, alias="status", description="Lọc theo trạng thái"),
-    page: int = Query(1, ge=1, description="Trang hiện tại"),
-    page_size: int = Query(10, ge=1, le=50, description="Số lượng mỗi trang"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Khách hàng xem danh sách đơn hàng của mình (FR-028)."""
-    if status_filter and status_filter.upper() not in VALID_STATUSES:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Trạng thái đơn hàng không hợp lệ",
-        )
+def get_orders_by_user(
+    db: Session,
+    user_id: int,
+    status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> Tuple[int, List[Order]]:
+    """Lấy danh sách đơn hàng của một người dùng cụ thể kèm phân trang (FR-028).
 
-    total, orders = crud_order_histories.get_orders_by_user(
-        db=db,
-        user_id=current_user.id,
-        status=status_filter,
-        page=page,
-        page_size=page_size,
+    Args:
+        db: Database session.
+        user_id: ID khách hàng.
+        status: Bộ lọc trạng thái đơn hàng (nếu có).
+        page: Số trang hiện tại.
+        page_size: Số lượng đơn hàng mỗi trang.
+
+    Returns:
+        Tuple (tổng số đơn hàng thỏa điều kiện, danh sách đơn hàng).
+    """
+    query = db.query(Order).filter(Order.user_id == user_id)
+    if status:
+        query = query.filter(Order.status == status)
+
+    total = query.count()
+    orders = (
+        query.order_by(Order.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return total, orders
+
+
+def get_all_orders(
+    db: Session,
+    status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> Tuple[int, List[Order]]:
+    """Lấy danh sách tất cả đơn hàng trong hệ thống (dành cho Admin/Staff) kèm phân trang.
+
+    Args:
+        db: Database session.
+        status: Bộ lọc trạng thái đơn hàng (nếu có).
+        page: Số trang.
+        page_size: Số lượng mỗi trang.
+
+    Returns:
+        Tuple (tổng số đơn hàng trong hệ thống, danh sách đơn hàng).
+    """
+    query = db.query(Order)
+    if status:
+        query = query.filter(Order.status == status)
+
+    total = query.count()
+    orders = (
+        query.order_by(Order.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return total, orders
+
+
+def get_order_by_id(db: Session, order_id: int) -> Optional[Order]:
+    """Lấy thông tin một đơn hàng theo ID.
+
+    Args:
+        db: Database session.
+        order_id: ID đơn hàng cần tìm.
+
+    Returns:
+        Đối tượng Order nếu tìm thấy, ngược lại None.
+    """
+    return db.query(Order).filter(Order.id == order_id).first()
+
+
+def get_order_items(db: Session, order_id: int) -> List[OrderItem]:
+    """Lấy danh sách các mặt hàng chi tiết trong một đơn hàng (FR-025).
+
+    Args:
+        db: Database session.
+        order_id: ID đơn hàng.
+
+    Returns:
+        Danh sách OrderItem thuộc về đơn hàng đó.
+    """
+    return db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+
+
+def get_order_histories(db: Session, order_id: int) -> List[OrderStatusHistory]:
+    """Lấy toàn bộ lịch sử chuyển đổi trạng thái của một đơn hàng theo thời gian (FR-025, FR-028).
+
+    Args:
+        db: Database session.
+        order_id: ID đơn hàng.
+
+    Returns:
+        Danh sách OrderStatusHistory sắp xếp từ mới nhất tới cũ nhất.
+    """
+    return (
+        db.query(OrderStatusHistory)
+        .filter(OrderStatusHistory.order_id == order_id)
+        .order_by(OrderStatusHistory.changed_at.desc())
+        .all()
     )
 
-    return {
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "items": orders,
-    }
-
-
-@router.get("/{id}", response_model=OrderDetailResponse)
-def read_order_detail(
-    id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Xem chi tiết đơn hàng kèm danh sách sản phẩm và lịch sử trạng thái (FR-025)."""
-    order = crud_order_histories.get_order_by_id(db=db, order_id=id)
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Đơn hàng không tồn tại",
-        )
-
-    # Chặn khách xem đơn của người khác
-    if order.user_id != current_user.id and getattr(current_user, "role", "") != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không có quyền xem đơn hàng này",
-        )
-
-    items = crud_order_histories.get_order_items(db=db, order_id=id)
-    histories = crud_order_histories.get_order_histories(db=db, order_id=id)
-
-    return OrderDetailResponse(
-        id=order.id,
-        order_code=order.order_code,
-        receiver_name=order.receiver_name,
-        receiver_phone=order.receiver_phone,
-        shipping_address=order.shipping_address,
-        note=order.note,
-        payment_method=order.payment_method,
-        total_amount=order.total_amount,
-        status=order.status,
-        cancel_reason=order.cancel_reason,
-        created_at=order.created_at,
-        items=items,
-        histories=histories,
+def cancel_order(db: Session, order: Order, user_id: int, cancel_reason: str) -> Order:
+    """Hủy đơn hàng, ghi lịch sử và hoàn lại tồn kho."""
+    old_status = str(order.status.value if hasattr(order.status, "value") else order.status)
+    # 1. Cập nhật trạng thái đơn hàng sang CANCELLED
+    order.status = "CANCELLED"
+    order.cancel_reason = cancel_reason
+    # 2. Ghi 1 dòng lịch sử thay đổi trạng thái
+    history = OrderStatusHistory(
+        order_id=order.id,
+        changed_by=user_id,
+        old_status=old_status,
+        new_status="CANCELLED",
+        note=cancel_reason,
     )
+    db.add(history)
+    # 3. Hoàn lại tồn kho cho từng sản phẩm và ghi nhật ký kho
+    for item in order.items:
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if product:
+            stock_before = product.stock_quantity
+            product.stock_quantity += item.quantity
+            stock_after = product.stock_quantity
+            # Ghi nhật ký biến động kho (stock_logs)
+            stock_log = StockLog(
+                product_id=product.id,
+                order_id=order.id,
+                created_by=user_id,
+                change_type="CANCEL",
+                quantity_change=item.quantity,  # số dương là cộng hoàn lại
+                stock_before=stock_before,
+                stock_after=stock_after,
+                note=f"Hoàn tồn kho do hủy đơn {order.order_code}",
+            )
+            db.add(stock_log)
+    # 4. Lưu toàn bộ thay đổi trong 1 giao dịch
+    db.commit()
+    db.refresh(order)
+    return order
+
+def get_all_orders_admin(
+    db: Session,
+    status: Optional[str] = None,
+    from_date: Optional[date] = None,
+    to_date: Optional[date] = None,
+    keyword: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> Tuple[int, List[Order]]:
+    """Lấy danh sách tất cả đơn hàng cho Admin có lọc và phân trang (FR-024)."""
+    query = db.query(Order)
+    # Lọc theo trạng thái
+    if status:
+        query = query.filter(Order.status == status)
+    # Lọc theo khoảng ngày tạo đơn
+    if from_date:
+        query = query.filter(func.date(Order.created_at) >= from_date)
+    if to_date:
+        query = query.filter(func.date(Order.created_at) <= to_date)
+    # Tìm kiếm theo mã đơn hoặc số điện thoại
+    if keyword:
+        kw = f"%{keyword.strip()}%"
+        query = query.filter(
+            or_(
+                Order.order_code.like(kw),
+                Order.receiver_phone.like(kw),
+            )
+        )
+    total = query.count()
+    orders = (
+        query.order_by(Order.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return total, orders
+def update_order_status_admin(
+    db: Session,
+    order: Order,
+    new_status: str,
+    user_id: int,
+    note: Optional[str] = None,
+) -> Order:
+    """Cập nhật trạng thái đơn hàng và ghi lại lịch sử (FR-026)."""
+    old_status = str(order.status.value if hasattr(order.status, "value") else order.status)
+    # Cập nhật trạng thái mới
+    order.status = new_status
+    # Nếu hoàn thành thì lưu thời điểm hoàn thành
+    if new_status == "COMPLETED":
+        order.completed_at = datetime.now()
+    # Ghi lại 1 dòng lịch sử chuyển đổi trạng thái
+    history = OrderStatusHistory(
+        order_id=order.id,
+        changed_by=user_id,
+        old_status=old_status,
+        new_status=new_status,
+        note=note,
+    )
+    db.add(history)
+    db.commit()
+    db.refresh(order)
+    return order
