@@ -58,10 +58,16 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     """Xác thực thông tin đăng nhập và trả về access token."""
     result = login_account(data.email, data.password, db)
     
-    if result in ("INVALID_EMAIL", "INVALID_PASSWORD"):
+    if result == "INVALID_EMAIL":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email hoặc mật khẩu không chính xác",
+            detail="Tài khoản không tồn tại",
+        )
+        
+    if result == "INVALID_PASSWORD":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Mật khẩu không chính xác",
         )
         
     if result == "ACCOUNT_IS_LOCKED":

@@ -29,6 +29,7 @@ from app.schemas.category import (
     CategoryCreate,
     CategoryResponse,
     CategoryUpdate,
+    CategoryDeleteResponse,
 )
 from app.schemas.product import (
     ProductBase,
@@ -99,6 +100,7 @@ __all__ = [
     "CategoryCreate",
     "CategoryResponse",
     "CategoryUpdate",
+    "CategoryDeleteResponse",
     "ProductBase",
     "ProductCreate",
     "ProductResponse",

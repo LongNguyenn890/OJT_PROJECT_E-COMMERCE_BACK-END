@@ -30,7 +30,7 @@ from app.schemas.stock_log import (
 from app.service import inventory as inventory_service
 from app.service.inventory import decrease_stock, increase_stock  # Re-export để các module khác có thể gọi
 
-router = APIRouter(prefix="/admin/inventory", tags=["Inventory"])
+router = APIRouter(prefix="/inventory", tags=["Inventory"])
 
 
 @router.get(
