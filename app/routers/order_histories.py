@@ -20,15 +20,13 @@ from app.schemas import (
     MyOrdersPaginationResponse,
     OrderDetailResponse,
     CancelOrderRequest,
-    UpdateOrderStatusRequest 
+    UpdateOrderStatusRequest,
     OrderStatusHistoryResponse,
 )
 
 from app.service import order_status_histories as crud_order_histories
 
-router = APIRouter(prefix="/orders", tags=["Order Histories"])
-
-admin_router = APIRouter(prefix="/admin/orders", tags=["Admin Orders"])
+router = APIRouter(prefix="/orders", tags=["Orders"])
 
 VALID_TRANSITIONS = {
     "PENDING": ["CONFIRMED"],
@@ -49,12 +47,14 @@ class OrderStatusFilter(str, Enum):
 @router.get(
     "",
     response_model=MyOrdersPaginationResponse,
-    summary="Xem tất cả đơn hàng hệ thống (Dành cho Admin & Staff)",
+    summary="Xem tất cả đơn hàng hệ thống (Dành cho Admin & Staff) (FR-024)",
     description=(
-        "Lấy danh sách tất cả các đơn hàng trong toàn bộ hệ thống kèm phân trang và lọc theo trạng thái.\n"
+        "Lấy danh sách tất cả các đơn hàng trong toàn bộ hệ thống kèm phân trang và lọc đa tiêu chí.\n"
         "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`.\n"
-        "- **Hỗ trợ lọc**: Theo trạng thái đơn hàng (`PENDING`, `CONFIRMED`, `SHIPPING`, `DELIVERED`, `COMPLETED`, `CANCELLED`).\n"
-        "- **Mã lỗi**: `401 Unauthorized` nếu chưa đăng nhập; `403 Forbidden` nếu người dùng là Customer thông thường."
+        "- **Hỗ trợ lọc**: Theo trạng thái đơn hàng (`PENDING`, `CONFIRMED`, `SHIPPING`, `DELIVERED`, `COMPLETED`, `CANCELLED`), "
+        "khoảng ngày tạo đơn (`from_date`, `to_date`), hoặc tìm kiếm từ khóa mã đơn / SĐT người nhận (`keyword`).\n"
+        "- **Mã lỗi**: `401 Unauthorized` nếu chưa đăng nhập; `403 Forbidden` nếu người dùng là Customer thông thường; "
+        "`422 Unprocessable Entity` nếu `from_date > to_date`."
     ),
 )
 def read_all_orders(
@@ -63,24 +63,37 @@ def read_all_orders(
         alias="status",
         description="Lọc theo trạng thái đơn hàng (ví dụ: PENDING, SHIPPING, COMPLETED)",
     ),
+    from_date: Optional[date] = Query(None, description="Từ ngày tạo đơn (YYYY-MM-DD)"),
+    to_date: Optional[date] = Query(None, description="Đến ngày tạo đơn (YYYY-MM-DD)"),
+    keyword: Optional[str] = Query(None, description="Tìm theo mã đơn hoặc SĐT người nhận"),
     page: int = Query(1, ge=1, description="Số trang hiện tại (bắt đầu từ 1)"),
     page_size: int = Query(10, ge=1, le=50, description="Số đơn hàng trên mỗi trang (tối đa 50)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Admin hoặc Staff xem danh sách tất cả đơn hàng kèm phân trang."""
+    """Admin hoặc Staff xem danh sách tất cả đơn hàng kèm phân trang và tìm kiếm/lọc."""
     # Kiểm tra quyền: Chỉ tài khoản Admin hoặc Staff mới được xem toàn bộ đơn hàng
-    user_role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
-    if user_role not in ("ADMIN", "STAFF"):
+    user_role = str(getattr(current_user, "role", "")).upper()
+    if user_role not in ["ADMIN", "STAFF"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Bạn không có quyền xem toàn bộ đơn hàng (chỉ dành cho Admin/Staff)",
         )
 
+    # Kiểm tra ngày hợp lệ
+    if from_date and to_date and from_date > to_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Ngày bắt đầu (from_date) không được lớn hơn ngày kết thúc (to_date)",
+        )
+
     status_val = status_filter.value if status_filter else None
-    total, orders = crud_order_histories.get_all_orders(
+    total, orders = crud_order_histories.get_all_orders_admin(
         db=db,
         status=status_val,
+        from_date=from_date,
+        to_date=to_date,
+        keyword=keyword,
         page=page,
         page_size=page_size,
     )
@@ -186,7 +199,78 @@ def read_order_detail(
         histories=histories,
     )
 
-@router.post("/{id}/cancel")
+
+@router.put(
+    "/{id}/status",
+    summary="Cập nhật trạng thái đơn hàng (Dành cho Admin & Staff) (FR-026)",
+    description=(
+        "Admin hoặc Nhân viên cập nhật trạng thái đơn hàng theo đúng luồng chuyển trạng thái hợp lệ.\n"
+        "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`.\n"
+        "- **Quy tắc luồng trạng thái**: PENDING -> CONFIRMED -> SHIPPING -> COMPLETED.\n"
+        "- **Lưu ý**: Để hủy đơn hàng và hoàn kho, vui lòng dùng API `POST /orders/{id}/cancel`."
+    ),
+)
+def update_order_status(
+    id: int,
+    request: UpdateOrderStatusRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin cập nhật trạng thái đơn hàng theo đúng luồng (FR-026)."""
+    user_role = str(getattr(current_user, "role", "")).upper()
+    if user_role not in ["ADMIN", "STAFF"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền thực hiện thao tác này",
+        )
+    order = crud_order_histories.get_order_by_id(db=db, order_id=id)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Đơn hàng không tồn tại",
+        )
+    current_status = str(order.status.value if hasattr(order.status, "value") else order.status).upper()
+    new_status = request.status.upper()
+    # 1. Chặn nếu cố chuyển sang CANCELLED (phải dùng API cancel để hoàn kho)
+    if new_status == "CANCELLED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Không thể chuyển sang trạng thái Hủy ở đây. Vui lòng dùng chức năng Hủy đơn hàng để có lý do và hoàn kho",
+        )
+    # 2. Kiểm tra trạng thái hiện tại có được phép chuyển tiếp không
+    allowed_next_statuses = VALID_TRANSITIONS.get(current_status, [])
+    if new_status not in allowed_next_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Chuyển trạng thái không hợp lệ! Không thể chuyển từ {current_status} sang {new_status}",
+        )
+    # 3. Cập nhật trạng thái
+    updated_order = crud_order_histories.update_order_status_admin(
+        db=db,
+        order=order,
+        new_status=new_status,
+        user_id=current_user.id,
+        note=request.note,
+    )
+    return {
+        "message": "Cập nhật trạng thái đơn hàng thành công",
+        "order_id": updated_order.id,
+        "order_code": updated_order.order_code,
+        "old_status": current_status,
+        "new_status": str(updated_order.status.value if hasattr(updated_order.status, "value") else updated_order.status),
+    }
+
+
+@router.post(
+    "/{id}/cancel",
+    summary="Hủy đơn hàng (FR-027)",
+    description=(
+        "Hủy đơn hàng theo điều kiện ràng buộc.\n"
+        "- **Khách hàng**: Chỉ được hủy khi đơn ở trạng thái `PENDING`.\n"
+        "- **Admin/Staff**: Có thể hủy khi đơn ở trạng thái `PENDING` hoặc `CONFIRMED`.\n"
+        "- Đơn hàng hủy sẽ tự động hoàn số lượng sản phẩm lại vào tồn kho."
+    ),
+)
 def cancel_order_endpoint(
     id: int,
     request: CancelOrderRequest,
@@ -194,23 +278,6 @@ def cancel_order_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Hủy đơn hàng theo điều kiện (FR-027)."""
-
-@router.get(
-    "/{id}/histories",
-    response_model=List[OrderStatusHistoryResponse],
-    summary="Xem lịch sử chuyển đổi trạng thái đơn hàng (FR-025, FR-028)",
-    description=(
-        "Lấy toàn bộ dòng thời gian (timeline) thay đổi trạng thái của đơn hàng (VD: Chờ xác nhận -> Đã xác nhận -> Đang giao -> Hoàn thành).\n"
-        "- **Quyền hạn yêu cầu**: Chủ sở hữu đơn hàng hoặc người dùng có role `ADMIN`/`STAFF`.\n"
-        "- **Mã lỗi**: `404 Not Found` nếu đơn không tồn tại; `403 Forbidden` nếu không có quyền truy cập."
-    ),
-)
-def read_order_status_histories(
-    id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Lấy danh sách các mốc thay đổi trạng thái của đơn hàng."""
     order = crud_order_histories.get_order_by_id(db=db, order_id=id)
     if not order:
         raise HTTPException(
@@ -268,97 +335,28 @@ def read_order_status_histories(
     }
 
 
-@admin_router.get("", response_model=MyOrdersPaginationResponse)
-def read_all_orders(
-    status_filter: Optional[OrderStatusFilter] = Query(None, alias="status", description="Lọc theo trạng thái"),
-    from_date: Optional[date] = Query(None, description="Từ ngày (YYYY-MM-DD)"),
-    to_date: Optional[date] = Query(None, description="Đến ngày (YYYY-MM-DD)"),
-    keyword: Optional[str] = Query(None, description="Tìm theo mã đơn hoặc SĐT người nhận"),
-    page: int = Query(1, ge=1, description="Trang hiện tại"),
-    page_size: int = Query(10, ge=1, le=50, description="Số lượng mỗi trang"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Admin xem danh sách tất cả đơn hàng (FR-024)."""
-    user_role = str(getattr(current_user, "role", "")).upper()
-    if user_role not in ["ADMIN", "STAFF"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không có quyền truy cập chức năng này",
-        )
-    # Kiểm tra ngày hợp lệ
-    if from_date and to_date and from_date > to_date:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Ngày bắt đầu (from_date) không được lớn hơn ngày kết thúc (to_date)",
-        )
-    status_val = status_filter.value if status_filter else None
-    total, orders = crud_order_histories.get_all_orders_admin(
-        db=db,
-        status=status_val,
-        from_date=from_date,
-        to_date=to_date,
-        keyword=keyword,
-        page=page,
-        page_size=page_size,
-    )
-    return {
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "items": orders,
-    }
-@admin_router.put("/{id}/status")
-def update_order_status(
+@router.get(
+    "/{id}/histories",
+    response_model=List[OrderStatusHistoryResponse],
+    summary="Xem lịch sử chuyển đổi trạng thái đơn hàng (FR-025, FR-028)",
+    description=(
+        "Lấy toàn bộ dòng thời gian (timeline) thay đổi trạng thái của đơn hàng (VD: Chờ xác nhận -> Đã xác nhận -> Đang giao -> Hoàn thành).\n"
+        "- **Quyền hạn yêu cầu**: Chủ sở hữu đơn hàng hoặc người dùng có role `ADMIN`/`STAFF`.\n"
+        "- **Mã lỗi**: `404 Not Found` nếu đơn không tồn tại; `403 Forbidden` nếu không có quyền truy cập."
+    ),
+)
+def read_order_status_histories(
     id: int,
-    request: UpdateOrderStatusRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Admin cập nhật trạng thái đơn hàng theo đúng luồng (FR-026)."""
-    user_role = str(getattr(current_user, "role", "")).upper()
-    if user_role not in ["ADMIN", "STAFF"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không có quyền thực hiện thao tác này",
-        )
+    """Lấy danh sách các mốc thay đổi trạng thái của đơn hàng."""
     order = crud_order_histories.get_order_by_id(db=db, order_id=id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Đơn hàng không tồn tại",
         )
-    current_status = str(order.status.value if hasattr(order.status, "value") else order.status).upper()
-    new_status = request.status.upper()
-    # 1. Chặn nếu cố chuyển sang CANCELLED (phải dùng API cancel để hoàn kho)
-    if new_status == "CANCELLED":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Không thể chuyển sang trạng thái Hủy ở đây. Vui lòng dùng chức năng Hủy đơn hàng để có lý do và hoàn kho",
-        )
-    # 2. Kiểm tra trạng thái hiện tại có được phép chuyển tiếp không
-    allowed_next_statuses = VALID_TRANSITIONS.get(current_status, [])
-    if new_status not in allowed_next_statuses:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Chuyển trạng thái không hợp lệ! Không thể chuyển từ {current_status} sang {new_status}",
-        )
-    # 3. Cập nhật trạng thái
-    updated_order = crud_order_histories.update_order_status_admin(
-        db=db,
-        order=order,
-        new_status=new_status,
-        user_id=current_user.id,
-        note=request.note,
-    )
-    return {
-        "message": "Cập nhật trạng thái đơn hàng thành công",
-        "order_id": updated_order.id,
-        "order_code": updated_order.order_code,
-        "old_status": current_status,
-        "new_status": str(updated_order.status.value if hasattr(updated_order.status, "value") else updated_order.status),
-    }
-
     user_role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
     if order.user_id != current_user.id and user_role not in ("ADMIN", "STAFF"):
         raise HTTPException(

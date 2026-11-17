@@ -8,7 +8,8 @@ Bao gồm:
 - order_histories: Xem danh sách và chi tiết lịch sử đơn hàng (FR-025, FR-028).
 - products: Danh sách, phân loại và chi tiết sản phẩm công khai (FR-013 -> FR-015).
 - categories: Quản lý danh mục sản phẩm (FR-014 -> FR-017, quyền Admin/Staff thêm sửa xóa).
+- customers: Quản lý khách hàng, lịch sử mua hàng, thống kê chi tiêu (quyền Admin/Staff).
 """
-from app.routers import auth, cart, health, inventory, order_histories, products, categories
+from app.routers import auth, cart, health, inventory, order_histories, products, categories, customers
 
-__all__ = ["auth", "cart", "health", "inventory", "order_histories", "products", "categories"]
+__all__ = ["auth", "cart", "health", "inventory", "order_histories", "products", "categories", "customers"]

@@ -37,6 +37,23 @@ from app.service.category import (
     update_category,
     delete_category,
 )
+from app.service import customer as customer_service
+from app.service.customer import (
+    get_customers_list,
+    get_customer_detail,
+    get_customer_orders,
+    update_customer_status,
+)
+from app.service import product as product_service
+from app.service.product import (
+    create_product,
+    update_product,
+    upload_product_images,
+    set_primary_image,
+    delete_product_image,
+    delete_or_hide_product,
+    set_product_visibility,
+)
 
 __all__ = [
     "get_user_by_id",
@@ -66,4 +83,17 @@ __all__ = [
     "create_category",
     "update_category",
     "delete_category",
+    "product_service",
+    "create_product",
+    "update_product",
+    "upload_product_images",
+    "set_primary_image",
+    "delete_product_image",
+    "delete_or_hide_product",
+    "set_product_visibility",
+    "customer_service",
+    "get_customers_list",
+    "get_customer_detail",
+    "get_customer_orders",
+    "update_customer_status",
 ]

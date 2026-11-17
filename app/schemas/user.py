@@ -29,6 +29,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(default=None, min_length=1)
     email: Optional[EmailStr] = Field(default=None)
     phone: Optional[str] = Field(default=None, min_length=10, max_length=15)
+    avatar: Optional[str] = Field(default=None, description="Đường dẫn hoặc URL ảnh đại diện")
     password: Optional[str] = Field(default=None, min_length=6)
 
 
@@ -36,11 +37,17 @@ class UserStatusUpdate(BaseModel):
     status: Status = Field(..., description="Trạng thái tài khoản: ACTIVE hoặc LOCK")
 
 
+class AvatarResponse(BaseModel):
+    message: str = "Cập nhật ảnh đại diện thành công"
+    avatar: Optional[str] = None
+
+
 class UserResponse(BaseModel):
     id: int
     full_name: str
     email: EmailStr
     phone: str
+    avatar: Optional[str] = None
     role: Role
     status: Status
     created_at: Optional[datetime] = None

@@ -11,6 +11,13 @@ Bao gồm:
 - order_histories: Schemas danh sách và lịch sử trạng thái đơn hàng.
 - stock_log: Schemas quản lý tồn kho, nhập hàng, kiểm kê và cảnh báo sắp hết hàng.
 """
+from app.schemas.customer import (
+    CustomerOrderSummary,
+    CustomerListItemResponse,
+    CustomerPaginationResponse,
+    CustomerDetailResponse,
+    CustomerOrdersPaginationResponse,
+)
 from app.schemas.user import (
     UserCreate,
     TokenResponse,
@@ -18,6 +25,7 @@ from app.schemas.user import (
     UserResponse,
     UserStatusUpdate,
     UserUpdate,
+    AvatarResponse,
 )
 from app.schemas.address import (
     AddressCreate,
@@ -39,6 +47,9 @@ from app.schemas.product import (
     PublicProductResponse,
     PublicProductDetailResponse,
     PublicProductPageResponse,
+    ProductDeleteOrHideResponse,
+    ProductVisibilityRequest,
+    ProductImageDeleteResponse,
 )
 from app.schemas.product_image import (
     ProductImageBase,
@@ -68,7 +79,7 @@ from app.schemas.order_histories import (
     MyOrdersPaginationResponse,
     OrderDetailResponse,
     CancelOrderRequest,
-    UpdateOrderStatusRequest
+    UpdateOrderStatusRequest,
 )
 from app.schemas.stock_log import (
     DEFAULT_LOW_STOCK_THRESHOLD,
@@ -95,6 +106,7 @@ __all__ = [
     "UserResponse",
     "UserStatusUpdate",
     "UserUpdate",
+    "AvatarResponse",
     "AddressCreate",
     "AddressResponse",
     "AddressUpdate",
@@ -110,6 +122,9 @@ __all__ = [
     "PublicProductResponse",
     "PublicProductDetailResponse",
     "PublicProductPageResponse",
+    "ProductDeleteOrHideResponse",
+    "ProductVisibilityRequest",
+    "ProductImageDeleteResponse",
     "ProductImageBase",
     "ProductImageCreate",
     "ProductImageResponse",
@@ -126,6 +141,8 @@ __all__ = [
     "OrderListResponse",
     "MyOrdersPaginationResponse",
     "OrderDetailResponse",
+    "CancelOrderRequest",
+    "UpdateOrderStatusRequest",
     "DEFAULT_LOW_STOCK_THRESHOLD",
     "ChangeType",
     "StockLogBase",
@@ -141,4 +158,9 @@ __all__ = [
     "LowStockFilter",
     "LowStockProductItem",
     "LowStockAlertResponse",
+    "CustomerOrderSummary",
+    "CustomerListItemResponse",
+    "CustomerPaginationResponse",
+    "CustomerDetailResponse",
+    "CustomerOrdersPaginationResponse",
 ]

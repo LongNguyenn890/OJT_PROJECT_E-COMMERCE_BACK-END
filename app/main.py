@@ -16,6 +16,7 @@ from app.routers import (
     auth,
     cart,
     categories,
+    customers,
     health,
     inventory,
     order_histories,
@@ -29,6 +30,23 @@ async def lifespan(app: FastAPI):
     # Lưu ý: create_all KHÔNG sửa bảng đã tồn tại. Đổi cột -> sửa bằng SQL hoặc xoá bảng tạo lại.
     try:
         Base.metadata.create_all(bind=engine)
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        if "products" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("products")]
+            with engine.connect() as conn:
+                if "sku" not in columns:
+                    conn.execute(text("ALTER TABLE products ADD COLUMN sku VARCHAR(100) UNIQUE NULL"))
+                    conn.commit()
+                if "promotional_price" not in columns:
+                    conn.execute(text("ALTER TABLE products ADD COLUMN promotional_price DECIMAL(12, 2) NULL"))
+                    conn.commit()
+        if "users" in inspector.get_table_names():
+            user_columns = [c["name"] for c in inspector.get_columns("users")]
+            with engine.connect() as conn:
+                if "avatar" not in user_columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN avatar VARCHAR(255) NULL"))
+                    conn.commit()
         print(f"[DB] Đã kết nối MySQL {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}")
     except OperationalError as error:
         print("[DB] KHÔNG kết nối được MySQL! Kiểm tra MySQL đã bật chưa và file .env.")
@@ -38,7 +56,48 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
+tags_metadata = [
+    {
+        "name": "Auth",
+        "description": "Xác thực, đăng ký, đăng nhập, thông tin tài khoản, avatar và đăng xuất (FR-001 -> FR-004).",
+    },
+    {
+        "name": "Products",
+        "description": "Quản lý sản phẩm, tìm kiếm, lọc, chi tiết, upload ảnh và ẩn/xóa sản phẩm (FR-013 -> FR-015).",
+    },
+    {
+        "name": "Categories",
+        "description": "Quản lý danh mục sản phẩm (xem công khai, thêm/sửa/xóa dành cho Admin/Staff).",
+    },
+    {
+        "name": "Cart",
+        "description": "Quản lý giỏ hàng của khách hàng (xem, thêm, cập nhật số lượng, xóa sản phẩm).",
+    },
+    {
+        "name": "Orders",
+        "description": "Quản lý đơn hàng, xem đơn hàng của tôi, xem toàn bộ đơn hệ thống, lịch sử trạng thái và cập nhật.",
+    },
+    {
+        "name": "Customers",
+        "description": "Quản lý khách hàng dành cho Admin & Staff: danh sách, tìm kiếm, chi tiết, lịch sử mua hàng, thống kê chi tiêu.",
+    },
+    {
+        "name": "Inventory",
+        "description": "Quản lý kho hàng: theo dõi tồn kho, cảnh báo sắp hết hàng, nhập hàng, kiểm kê và nhật ký biến động kho.",
+    },
+    {
+        "name": "Health",
+        "description": "Kiểm tra tình trạng hoạt động của hệ thống backend và kết nối MySQL Database.",
+    },
+]
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    description="Hệ thống API Backend quản lý thương mại điện tử (E-Commerce Platform)",
+    version="1.0.0",
+    openapi_tags=tags_metadata,
+    lifespan=lifespan,
+)
 
 # CORS: cho phép trang FE (khác cổng/khác domain) gọi được API này
 app.add_middleware(
@@ -48,17 +107,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mọi API đều bắt đầu bằng /api. Thêm router mới thì include ở đây.
-app.include_router(health.router, prefix="/api")
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+# Thư mục lưu trữ tệp tĩnh (ảnh tải lên)
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+(UPLOAD_DIR / "avatars").mkdir(parents=True, exist_ok=True)
+(UPLOAD_DIR / "products").mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# Mọi API đều bắt đầu bằng /api. Sắp xếp router theo luồng nghiệp vụ chuẩn:
 app.include_router(auth.router, prefix="/api")
-app.include_router(order_histories.router, prefix="/api")
-app.include_router(cart.router, prefix="/api")
-app.include_router(order_histories.router, prefix="/api")
-app.include_router(order_histories.admin_router, prefix="/api")
-# app.include_router(items.router, prefix="/api")
-app.include_router(inventory.router, prefix="/api")
 app.include_router(products.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
+app.include_router(cart.router, prefix="/api")
+app.include_router(order_histories.router, prefix="/api")
+app.include_router(customers.router, prefix="/api")
+app.include_router(inventory.router, prefix="/api")
+app.include_router(health.router, prefix="/api")
 
 
 @app.get("/")

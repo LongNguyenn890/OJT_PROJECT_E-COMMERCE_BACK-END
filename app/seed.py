@@ -630,16 +630,20 @@ PRODUCTS_SEED_DATA = [
 ]
 
 
-def seed_database():
+def seed_database(db: Session | None = None):
     """Tự động tạo bảng nếu chưa có và thêm toàn bộ dữ liệu mẫu cho hệ thống."""
     print("=" * 65)
     print("=== BẮT ĐẦU SEED TOÀN BỘ CƠ SỞ DỮ LIỆU ===")
     print("=" * 65)
 
-    # 1. Đảm bảo cấu trúc bảng trong DB đã được tạo
-    Base.metadata.create_all(bind=engine)
+    close_on_exit = False
+    if db is None:
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        close_on_exit = True
+    else:
+        Base.metadata.create_all(bind=db.get_bind())
 
-    db: Session = SessionLocal()
     try:
         # 2. Xóa dữ liệu cũ theo thứ tự ràng buộc khóa ngoại (để có thể chạy lại nhiều lần an toàn)
         print("\n--- 1. Dọn dẹp dữ liệu cũ (nếu có) ---")
@@ -722,8 +726,10 @@ def seed_database():
             product = Product(
                 category_id=cat_id,
                 name=prod_data["name"],
+                sku=prod_data.get("sku", f"PROD-{index:04d}"),
                 description=prod_data["description"],
                 price=prod_data["price"],
+                promotional_price=prod_data.get("promotional_price"),
                 stock_quantity=prod_data["stock_quantity"],
                 is_visible=1,
             )
@@ -1012,7 +1018,8 @@ def seed_database():
         print(f"[!] Lỗi trong quá trình seed dữ liệu: {e}")
         raise e
     finally:
-        db.close()
+        if close_on_exit:
+            db.close()
 
 
 if __name__ == "__main__":
