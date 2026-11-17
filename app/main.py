@@ -43,6 +43,7 @@ app.add_middleware(
 # Mọi API đều bắt đầu bằng /api. Thêm router mới thì include ở đây.
 app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
+app.include_router(order_histories.router, prefix="/api")
 app.include_router(cart.router, prefix="/api")
 app.include_router(order_histories.router, prefix="/api")
 app.include_router(order_histories.admin_router, prefix="/api")
