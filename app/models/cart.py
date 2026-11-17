@@ -19,8 +19,10 @@ class Cart(Base):
 
     @property
     def shipping_fee(self) -> int:
-        # Miễn phí vận chuyển theo BR-07, A-02
-        return 0
+        # Miễn phí vận chuyển cho đơn hàng từ 500.000đ; dưới 500.000đ phí 30.000đ (giỏ rỗng phí 0đ)
+        if self.subtotal == 0 or self.subtotal >= 500_000:
+            return 0
+        return 30_000
 
     @property
     def total_amount(self) -> int:
