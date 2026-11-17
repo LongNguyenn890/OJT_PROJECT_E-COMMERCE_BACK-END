@@ -18,11 +18,11 @@ class Product(Base):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    category_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("categories.id", ondelete="RESTRICT"))
-    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    category_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
-    stock_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    stock_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_visible: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

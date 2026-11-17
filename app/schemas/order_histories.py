@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
 
@@ -21,6 +21,7 @@ class OrderListResponse(BaseModel):
     id: int
     order_code: str
     receiver_name: str
+    receiver_phone: Optional[str] = None
     total_amount: int
     status: str
     created_at: datetime
@@ -55,3 +56,11 @@ class OrderDetailResponse(BaseModel):
     histories: List[OrderStatusHistoryResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+class CancelOrderRequest(BaseModel):
+    cancel_reason: str = Field(..., min_length=1, max_length=255, description="Lý do hủy đơn hàng")
+
+# Schema nhận dữ liệu cập nhật trạng thái đơn (FR-026)
+class UpdateOrderStatusRequest(BaseModel):
+    status: str = Field(..., description="Trạng thái mới: CONFIRMED, SHIPPING, COMPLETED")
+    note: Optional[str] = Field(None, max_length=255, description="Ghi chú nếu có")

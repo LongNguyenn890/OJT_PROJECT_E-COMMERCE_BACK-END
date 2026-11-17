@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 from enum import Enum
@@ -41,11 +42,6 @@ class OrderStatusHistory(Base):
     
     note: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     changed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-
-    # Liên kết khóa ngoại
-    order: Mapped["Order"] = relationship("Order", back_populates="histories")
-    user: Mapped[Optional["User"]] = relationship("User", foreign_keys=[changed_by])
-
 
     # Liên kết khóa ngoại
     order: Mapped["Order"] = relationship("Order", back_populates="histories")
