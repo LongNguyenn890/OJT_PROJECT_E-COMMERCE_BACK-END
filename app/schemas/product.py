@@ -36,3 +36,30 @@ class ProductResponse(ProductBase):
     updated_at: datetime | None = None
     category: CategoryResponse | None = None
     product_images: list[ProductImageResponse] = []
+
+
+class PublicProductResponse(BaseModel):
+    """Thông tin sản phẩm dùng cho API danh mục công khai."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    category_id: int
+    name: str
+    description: str | None = None
+    price: Decimal
+    stock_quantity: int
+    in_stock: bool
+    category: CategoryResponse | None = None
+    product_images: list[ProductImageResponse] = []
+
+
+class PublicProductDetailResponse(PublicProductResponse):
+    related_products: list[PublicProductResponse] = []
+
+
+class PublicProductPageResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    items: list[PublicProductResponse]
