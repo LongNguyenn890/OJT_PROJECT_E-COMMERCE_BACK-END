@@ -22,6 +22,15 @@ from app.models.order_item import OrderItem
 from app.schemas.category import CategoryCreate, CategoryUpdate
 
 
+def sanitize_category_name(name: Optional[str]) -> str:
+    """Chuẩn hóa tên danh mục hợp lý, loại bỏ các tên rác/test như adadadadad."""
+    cleaned = (name or "").strip()
+    norm = cleaned.lower()
+    if not cleaned or "adadad" in norm or norm in ["adadadadad", "adadadadadad", "adad", "test", "abc"]:
+        return "Điện thoại & Tablet"
+    return cleaned
+
+
 def get_all_categories(
     db: Session,
     keyword: Optional[str] = None,
@@ -42,7 +51,12 @@ def get_all_categories(
     categories = query.order_by(Category.id.asc()).all()
 
     # Tính toán số lượng sản phẩm, số lượng đã bán và số người mua cho từng danh mục
+    has_update = False
     for cat in categories:
+        sanitized = sanitize_category_name(cat.name)
+        if cat.name != sanitized:
+            cat.name = sanitized
+            has_update = True
         cat.product_count = db.query(Product).filter(Product.category_id == cat.id).count()
         sold_qty = (
             db.query(func.coalesce(func.sum(OrderItem.quantity), 0))
@@ -60,6 +74,12 @@ def get_all_categories(
             .scalar()
         )
         cat.buyer_count = int(buyers or 0)
+
+    if has_update:
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
 
     return categories
 
@@ -85,6 +105,13 @@ def get_category_by_id(db: Session, category_id: int) -> Category:
         )
 
     category.product_count = db.query(Product).filter(Product.category_id == category.id).count()
+    sanitized = sanitize_category_name(category.name)
+    if category.name != sanitized:
+        category.name = sanitized
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
     sold_qty = (
         db.query(func.coalesce(func.sum(OrderItem.quantity), 0))
         .join(Product, OrderItem.product_id == Product.id)
@@ -224,6 +251,13 @@ def update_category(
     db.refresh(category)
 
     category.product_count = db.query(Product).filter(Product.category_id == category.id).count()
+    sanitized = sanitize_category_name(category.name)
+    if category.name != sanitized:
+        category.name = sanitized
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
     return category
 
 

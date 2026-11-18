@@ -50,6 +50,36 @@ async def lifespan(app: FastAPI):
                 if "reward_points" not in user_columns:
                     conn.execute(text("ALTER TABLE users ADD COLUMN reward_points INT NOT NULL DEFAULT 0"))
                     conn.commit()
+        if "orders" in inspector.get_table_names():
+            order_cols = [c["name"] for c in inspector.get_columns("orders")]
+            with engine.connect() as conn:
+                if "subtotal_amount" not in order_cols:
+                    conn.execute(text("ALTER TABLE orders ADD COLUMN subtotal_amount BIGINT NOT NULL DEFAULT 0"))
+                    conn.commit()
+                if "shipping_fee" not in order_cols:
+                    conn.execute(text("ALTER TABLE orders ADD COLUMN shipping_fee BIGINT NOT NULL DEFAULT 0"))
+                    conn.commit()
+                if "cancel_reason" not in order_cols:
+                    conn.execute(text("ALTER TABLE orders ADD COLUMN cancel_reason VARCHAR(255) NULL"))
+                    conn.commit()
+                if "completed_at" not in order_cols:
+                    conn.execute(text("ALTER TABLE orders ADD COLUMN completed_at DATETIME NULL"))
+                    conn.commit()
+                if "note" not in order_cols:
+                    conn.execute(text("ALTER TABLE orders ADD COLUMN note VARCHAR(500) NULL"))
+                    conn.commit()
+        if "order_items" in inspector.get_table_names():
+            item_cols = [c["name"] for c in inspector.get_columns("order_items")]
+            with engine.connect() as conn:
+                if "image_url" not in item_cols:
+                    conn.execute(text("ALTER TABLE order_items ADD COLUMN image_url VARCHAR(255) NULL"))
+                    conn.commit()
+                if "category_name" not in item_cols:
+                    conn.execute(text("ALTER TABLE order_items ADD COLUMN category_name VARCHAR(100) NULL"))
+                    conn.commit()
+                if "sku" not in item_cols:
+                    conn.execute(text("ALTER TABLE order_items ADD COLUMN sku VARCHAR(100) NULL"))
+                    conn.commit()
         print(f"[DB] Đã kết nối MySQL {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}")
     except OperationalError as error:
         print("[DB] KHÔNG kết nối được MySQL! Kiểm tra MySQL đã bật chưa và file .env.")

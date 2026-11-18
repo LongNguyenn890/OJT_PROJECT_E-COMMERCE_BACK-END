@@ -1449,6 +1449,141 @@ def seed_database(db: Session | None = None):
                     {"old": HistoryStatus.PENDING, "new": HistoryStatus.CANCELLED, "note": "Khách gọi hotline yêu cầu hủy đơn do đổi ý", "by": staff_id, "time": now - timedelta(days=1, hours=2)},
                 ],
             },
+            # Đơn 6: Customer 1 - CONFIRMED (Đã xác nhận)
+            {
+                "customer": user_map.get("customer1@example.com"),
+                "order_code": "ORD20261112006",
+                "payment_method": PaymentMethod.BANK_TRANSFER,
+                "status": OrderModelStatus.CONFIRMED,
+                "cancel_reason": None,
+                "created_at": now - timedelta(hours=6),
+                "completed_at": None,
+                "note": "Đã thanh toán trước qua chuyển khoản ngân hàng",
+                "items": [
+                    {"product": product_list[7], "quantity": 1},   # MacBook Pro 14 M3 Pro
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn hàng thành công", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(hours=6)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên đối soát giao dịch và duyệt đơn", "by": staff_id, "time": now - timedelta(hours=5)},
+                ],
+            },
+            # Đơn 7: Customer 1 - SHIPPING (Đang giao hàng)
+            {
+                "customer": user_map.get("customer1@example.com"),
+                "order_code": "ORD20261111007",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.SHIPPING,
+                "cancel_reason": None,
+                "created_at": now - timedelta(days=1, hours=3),
+                "completed_at": None,
+                "note": "Giao sau 17h chiều hoặc gọi trước",
+                "items": [
+                    {"product": product_list[14], "quantity": 1},  # Sony WH-1000XM5
+                    {"product": product_list[28], "quantity": 1},  # Chuột Logitech MX Master 3S
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn hàng COD", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=1, hours=3)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Đơn hàng đã được xác nhận đóng gói", "by": staff_id, "time": now - timedelta(days=1, hours=1)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Bàn giao cho đơn vị vận chuyển ShopEase Express", "by": staff_id, "time": now - timedelta(hours=8)},
+                ],
+            },
+            # Đơn 8: Customer 1 - COMPLETED (Hoàn thành)
+            {
+                "customer": user_map.get("customer1@example.com"),
+                "order_code": "ORD20261108008",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.COMPLETED,
+                "cancel_reason": None,
+                "created_at": now - timedelta(days=4),
+                "completed_at": now - timedelta(days=2),
+                "note": "Khách nhận hàng tại địa chỉ công ty",
+                "items": [
+                    {"product": product_list[22], "quantity": 1},  # Apple Watch Series 9
+                    {"product": product_list[48], "quantity": 2},  # Áo Polo thể thao
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng thành công", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=4)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Duyệt đơn và chuyển kho xuất", "by": staff_id, "time": now - timedelta(days=3, hours=18)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Bưu tá bắt đầu phát hàng", "by": staff_id, "time": now - timedelta(days=3)},
+                    {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Giao hàng thành công và thu COD đầy đủ", "by": staff_id, "time": now - timedelta(days=2)},
+                ],
+            },
+            # Đơn 9: Customer 1 - CANCELLED (Đã hủy)
+            {
+                "customer": user_map.get("customer1@example.com"),
+                "order_code": "ORD20261109009",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.CANCELLED,
+                "cancel_reason": "Tôi đặt nhầm mẫu sản phẩm, muốn đổi sang màu khác",
+                "created_at": now - timedelta(days=2, hours=8),
+                "completed_at": None,
+                "note": None,
+                "items": [
+                    {"product": product_list[34], "quantity": 1},  # Robot Hút Bụi
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=2, hours=8)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CANCELLED, "note": "Khách hàng tự hủy đơn khi đơn đang Chờ xác nhận", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=2, hours=6)},
+                ],
+            },
+            # Đơn 10: Admin testing - PENDING (Chờ xác nhận)
+            {
+                "customer": user_map.get("admin@example.com"),
+                "order_code": "ORD20261112010",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.PENDING,
+                "cancel_reason": None,
+                "created_at": now - timedelta(minutes=45),
+                "completed_at": None,
+                "note": "Đơn hàng kiểm thử tài khoản Admin",
+                "items": [
+                    {"product": product_list[1], "quantity": 1},   # Samsung Galaxy S24 Ultra
+                    {"product": product_list[15], "quantity": 1},  # AirPods Pro 2
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khởi tạo đơn hàng kiểm thử", "by": user_map.get("admin@example.com").id, "time": now - timedelta(minutes=45)},
+                ],
+            },
+            # Đơn 11: Admin testing - SHIPPING (Đang giao hàng)
+            {
+                "customer": user_map.get("admin@example.com"),
+                "order_code": "ORD20261112011",
+                "payment_method": PaymentMethod.BANK_TRANSFER,
+                "status": OrderModelStatus.SHIPPING,
+                "cancel_reason": None,
+                "created_at": now - timedelta(hours=14),
+                "completed_at": None,
+                "note": "Giao giờ hành chính văn phòng",
+                "items": [
+                    {"product": product_list[63], "quantity": 1},  # Màn Hình Dell UltraSharp 27 4K
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng chuyển khoản", "by": user_map.get("admin@example.com").id, "time": now - timedelta(hours=14)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Xác nhận đã thanh toán", "by": staff_id, "time": now - timedelta(hours=12)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đang vận chuyển", "by": staff_id, "time": now - timedelta(hours=4)},
+                ],
+            },
+            # Đơn 12: Admin testing - COMPLETED (Hoàn thành)
+            {
+                "customer": user_map.get("admin@example.com"),
+                "order_code": "ORD20261107012",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.COMPLETED,
+                "cancel_reason": None,
+                "created_at": now - timedelta(days=5),
+                "completed_at": now - timedelta(days=3),
+                "note": None,
+                "items": [
+                    {"product": product_list[29], "quantity": 2},  # Củ Sạc Nhanh Anker Prime
+                    {"product": product_list[30], "quantity": 1},  # Cáp Sạc C to C
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn", "by": user_map.get("admin@example.com").id, "time": now - timedelta(days=5)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Xác nhận đơn", "by": staff_id, "time": now - timedelta(days=4, hours=20)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Bắt đầu giao", "by": staff_id, "time": now - timedelta(days=4)},
+                    {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Giao thành công", "by": staff_id, "time": now - timedelta(days=3)},
+                ],
+            },
         ]
 
         for order_info in sample_orders_data:
@@ -1484,6 +1619,15 @@ def seed_database(db: Session | None = None):
                 prod = item["product"]
                 qty = item["quantity"]
                 unit_price = int(prod.price)
+                primary_img = None
+                if getattr(prod, "product_images", None):
+                    for img in prod.product_images:
+                        if img.is_primary:
+                            primary_img = img.image_url
+                            break
+                    if not primary_img and prod.product_images:
+                        primary_img = prod.product_images[0].image_url
+
                 order_item = OrderItem(
                     order_id=order.id,
                     product_id=prod.id,
@@ -1491,6 +1635,9 @@ def seed_database(db: Session | None = None):
                     unit_price=unit_price,
                     quantity=qty,
                     subtotal=unit_price * qty,
+                    image_url=primary_img,
+                    category_name=prod.category.name if prod.category else None,
+                    sku=prod.sku or f"SP-{prod.id}",
                 )
                 db.add(order_item)
 

@@ -13,6 +13,9 @@ class OrderItem(Base):
     unit_price = Column(BigInteger, nullable=False)       # Đơn giá tại thời điểm đặt (BR-06)
     quantity = Column(Integer, nullable=False)
     subtotal = Column(BigInteger, nullable=False)        # unit_price * quantity
+    image_url = Column(String(255), nullable=True)       # Ảnh sản phẩm tại thời điểm đặt
+    category_name = Column(String(100), nullable=True)   # Tên ngành hàng
+    sku = Column(String(100), nullable=True)             # Mã SKU sản phẩm
 
     __table_args__ = (UniqueConstraint("order_id", "product_id", name="uq_order_product"),)
 

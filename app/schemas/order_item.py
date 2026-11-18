@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -10,5 +11,8 @@ class OrderItemResponse(BaseModel):
     unit_price: int = Field(description="Đơn giá tại thời điểm đặt hàng (BR-06)")
     quantity: int = Field(description="Số lượng sản phẩm")
     subtotal: int = Field(description="Thành tiền = đơn giá x số lượng")
+    image_url: Optional[str] = None
+    category_name: Optional[str] = None
+    sku: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

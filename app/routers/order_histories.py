@@ -34,6 +34,25 @@ VALID_TRANSITIONS = {
     "SHIPPING": ["COMPLETED"],
 }
 
+
+def normalize_status_code(status_obj) -> str:
+    """Chuẩn hóa trạng thái đơn hàng về mã code PENDING, CONFIRMED, SHIPPING, COMPLETED, CANCELLED."""
+    if hasattr(status_obj, "name"):
+        return status_obj.name
+    val = str(status_obj.value if hasattr(status_obj, "value") else status_obj).strip()
+    norm = val.lower()
+    if "chờ" in norm or "pending" in norm:
+        return "PENDING"
+    if "xác nhận" in norm or "confirmed" in norm:
+        return "CONFIRMED"
+    if "giao" in norm or "shipping" in norm:
+        return "SHIPPING"
+    if "hoàn thành" in norm or "completed" in norm or "delivered" in norm or "đã giao" in norm:
+        return "COMPLETED"
+    if "hủy" in norm or "cancel" in norm:
+        return "CANCELLED"
+    return val.upper()
+
 class OrderStatusFilter(str, Enum):
     """Bộ lọc trạng thái đơn hàng phục vụ API tìm kiếm/phân loại."""
     PENDING = "PENDING"
@@ -139,11 +158,61 @@ def read_my_orders(
         page_size=page_size,
     )
 
+    result_items = []
+    for o in orders:
+        items_payload = []
+        for it in (o.items or []):
+            prod = it.product
+            primary_img = None
+            category_name = None
+            sku = None
+            if prod:
+                sku = prod.sku or f"SP-{prod.id}"
+                if prod.category:
+                    category_name = prod.category.name
+                if prod.product_images:
+                    for img in prod.product_images:
+                        if img.is_primary:
+                            primary_img = img.image_url
+                            break
+                    if not primary_img and prod.product_images:
+                        primary_img = prod.product_images[0].image_url
+            items_payload.append({
+                "id": it.id,
+                "order_id": it.order_id,
+                "product_id": it.product_id,
+                "product_name": it.product_name,
+                "unit_price": it.unit_price,
+                "quantity": it.quantity,
+                "subtotal": it.subtotal,
+                "image_url": primary_img,
+                "category_name": category_name,
+                "sku": sku,
+            })
+        order_dict = {
+            "id": o.id,
+            "order_code": o.order_code,
+            "receiver_name": o.receiver_name,
+            "receiver_phone": o.receiver_phone,
+            "shipping_address": o.shipping_address,
+            "note": o.note,
+            "payment_method": str(o.payment_method.value if hasattr(o.payment_method, "value") else o.payment_method),
+            "subtotal_amount": o.subtotal_amount or (o.total_amount - (o.shipping_fee or 0)),
+            "shipping_fee": o.shipping_fee or 0,
+            "total_amount": o.total_amount,
+            "status": normalize_status_code(o.status),
+            "cancel_reason": o.cancel_reason,
+            "created_at": o.created_at,
+            "completed_at": o.completed_at,
+            "items": items_payload,
+        }
+        result_items.append(order_dict)
+
     return {
         "total": total,
         "page": page,
         "page_size": page_size,
-        "items": orders,
+        "items": result_items,
     }
 
 
@@ -181,7 +250,46 @@ def read_order_detail(
         )
 
     items = crud_order_histories.get_order_items(db=db, order_id=id)
+    items_payload = []
+    for it in items:
+        prod = it.product
+        primary_img = None
+        category_name = None
+        sku = None
+        if prod:
+            sku = prod.sku or f"SP-{prod.id}"
+            if prod.category:
+                category_name = prod.category.name
+            if prod.product_images:
+                for img in prod.product_images:
+                    if img.is_primary:
+                        primary_img = img.image_url
+                        break
+                if not primary_img and prod.product_images:
+                    primary_img = prod.product_images[0].image_url
+        items_payload.append({
+            "id": it.id,
+            "order_id": it.order_id,
+            "product_id": it.product_id,
+            "product_name": it.product_name,
+            "unit_price": it.unit_price,
+            "quantity": it.quantity,
+            "subtotal": it.subtotal,
+            "image_url": primary_img,
+            "category_name": category_name,
+            "sku": sku,
+        })
+
     histories = crud_order_histories.get_order_histories(db=db, order_id=id)
+    histories_payload = []
+    for h in histories:
+        histories_payload.append({
+            "id": h.id,
+            "old_status": normalize_status_code(h.old_status) if h.old_status else None,
+            "new_status": normalize_status_code(h.new_status),
+            "note": h.note,
+            "changed_at": h.changed_at,
+        })
 
     return OrderDetailResponse(
         id=order.id,
@@ -191,12 +299,15 @@ def read_order_detail(
         shipping_address=order.shipping_address,
         note=order.note,
         payment_method=str(order.payment_method.value if hasattr(order.payment_method, "value") else order.payment_method),
+        subtotal_amount=order.subtotal_amount or (order.total_amount - (order.shipping_fee or 0)),
+        shipping_fee=order.shipping_fee or 0,
         total_amount=order.total_amount,
-        status=str(order.status.value if hasattr(order.status, "value") else order.status),
+        status=normalize_status_code(order.status),
         cancel_reason=order.cancel_reason,
         created_at=order.created_at,
-        items=items,
-        histories=histories,
+        completed_at=order.completed_at,
+        items=items_payload,
+        histories=histories_payload,
     )
 
 
@@ -286,7 +397,7 @@ def cancel_order_endpoint(
         )
     # Lấy role của người dùng hiện tại (chuyển về dạng string in hoa)
     user_role = str(getattr(current_user, "role", "")).upper()
-    current_status = str(order.status.value if hasattr(order.status, "value") else order.status).upper()
+    current_status = normalize_status_code(order.status)
     # 1. Chặn nếu đơn đã ở trạng thái kết thúc hoặc đang giao
     if current_status == "CANCELLED":
         raise HTTPException(
@@ -330,7 +441,7 @@ def cancel_order_endpoint(
         "message": "Hủy đơn hàng thành công",
         "order_id": cancelled_order.id,
         "order_code": cancelled_order.order_code,
-        "status": str(cancelled_order.status.value if hasattr(cancelled_order.status, "value") else cancelled_order.status),
+        "status": normalize_status_code(cancelled_order.status),
         "cancel_reason": cancelled_order.cancel_reason,
     }
 

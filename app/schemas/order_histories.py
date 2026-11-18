@@ -16,15 +16,23 @@ class OrderStatusHistoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# Schema hiển thị danh sách đơn (ngắn gọn)
+# Schema hiển thị danh sách đơn (ngắn gọn kèm sản phẩm)
 class OrderListResponse(BaseModel):
     id: int
     order_code: str
     receiver_name: str
     receiver_phone: Optional[str] = None
+    shipping_address: Optional[str] = None
+    note: Optional[str] = None
+    payment_method: Optional[str] = None
+    subtotal_amount: Optional[int] = 0
+    shipping_fee: Optional[int] = 0
     total_amount: int
     status: str
+    cancel_reason: Optional[str] = None
     created_at: datetime
+    completed_at: Optional[datetime] = None
+    items: List[OrderItemResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -48,10 +56,13 @@ class OrderDetailResponse(BaseModel):
     shipping_address: str
     note: Optional[str] = None
     payment_method: str
+    subtotal_amount: Optional[int] = 0
+    shipping_fee: Optional[int] = 0
     total_amount: int
     status: str
     cancel_reason: Optional[str] = None
     created_at: datetime
+    completed_at: Optional[datetime] = None
     items: List[OrderItemResponse] = []
     histories: List[OrderStatusHistoryResponse] = []
 

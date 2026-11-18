@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from datetime import date, datetime
 from sqlalchemy import func, or_
 
-from app.models.order import Order
+from app.models.order import Order, OrderStatus
 from app.models.order_item import OrderItem
 from app.models.order_status_histories import OrderStatusHistory
 from app.models.product import Product
@@ -37,7 +37,22 @@ def get_orders_by_user(
     """
     query = db.query(Order).filter(Order.user_id == user_id)
     if status:
-        query = query.filter(Order.status == status)
+        st_clean = str(status).strip().upper()
+        candidates = [status, st_clean]
+        if hasattr(OrderStatus, st_clean):
+            member = getattr(OrderStatus, st_clean)
+            candidates.extend([member, member.value])
+        if st_clean in ("COMPLETED", "DELIVERED"):
+            candidates.extend(["Hoàn thành", "Đã giao", "DELIVERED", "COMPLETED", OrderStatus.COMPLETED])
+        elif st_clean == "PENDING":
+            candidates.extend(["Chờ xác nhận", OrderStatus.PENDING])
+        elif st_clean == "CONFIRMED":
+            candidates.extend(["Đã xác nhận", OrderStatus.CONFIRMED])
+        elif st_clean == "SHIPPING":
+            candidates.extend(["Đang giao", "Đang giao hàng", OrderStatus.SHIPPING])
+        elif st_clean == "CANCELLED":
+            candidates.extend(["Hủy", "Đã hủy", OrderStatus.CANCELLED])
+        query = query.filter(Order.status.in_(list(set(candidates))))
 
     total = query.count()
     orders = (
@@ -123,11 +138,31 @@ def get_order_histories(db: Session, order_id: int) -> List[OrderStatusHistory]:
         .all()
     )
 
+def _normalize_history_code(val) -> str:
+    if hasattr(val, "name"):
+        return val.name
+    s = str(val.value if hasattr(val, "value") else val).strip().lower()
+    if "chờ" in s or "pending" in s:
+        return "PENDING"
+    if "xác nhận" in s or "confirmed" in s:
+        return "CONFIRMED"
+    if "giao" in s or "shipping" in s:
+        return "SHIPPING"
+    if any(k in s for k in ["hoàn thành", "completed", "delivered", "thành công", "đã giao"]):
+        return "DELIVERED"
+    if "hủy" in s or "cancel" in s:
+        return "CANCELLED"
+    return "PENDING"
+
+
 def cancel_order(db: Session, order: Order, user_id: int, cancel_reason: str) -> Order:
     """Hủy đơn hàng, ghi lịch sử và hoàn lại tồn kho."""
-    old_status = str(order.status.value if hasattr(order.status, "value") else order.status)
-    # 1. Cập nhật trạng thái đơn hàng sang CANCELLED
-    order.status = "CANCELLED"
+    old_status = _normalize_history_code(order.status)
+    # 1. Cập nhật trạng thái đơn hàng sang CANCELLED / Hủy
+    try:
+        order.status = OrderStatus.CANCELLED
+    except Exception:
+        order.status = "CANCELLED"
     order.cancel_reason = cancel_reason
     # 2. Ghi 1 dòng lịch sử thay đổi trạng thái
     history = OrderStatusHistory(
