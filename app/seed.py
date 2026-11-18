@@ -3,8 +3,8 @@
 Bao gồm:
 - 1 Admin, 1 Nhân viên (STAFF), 5 Khách hàng (CUSTOMER)
 - 7 Địa chỉ nhận hàng (Addresses)
-- 6 Danh mục sản phẩm (Categories)
-- 40 Sản phẩm công nghệ có ảnh (Products & ProductImages)
+- 12 Danh mục sản phẩm đa dạng ngành hàng (Categories)
+- 81 Sản phẩm phong phú (Điện thoại, Laptop, Gia dụng, Thời trang, Mỹ phẩm, Linh kiện, Thể thao, Sách...) kèm ảnh (Products & ProductImages)
 - Lịch sử biến động tồn kho (StockLogs)
 - Giỏ hàng & Sản phẩm trong giỏ (Carts & CartItems)
 - 5 Đơn hàng mẫu ở các trạng thái (Orders, OrderItems, OrderStatusHistories):
@@ -63,6 +63,7 @@ USERS_SEED_DATA = [
         "full_name": "Quản Trị Viên",
         "email": "admin@example.com",
         "phone": "0901234567",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb",
         "password": DEFAULT_PASSWORD,
         "role": Role.ADMIN,
         "status": Status.ACTIVE,
@@ -80,6 +81,7 @@ USERS_SEED_DATA = [
         "full_name": "Nguyễn Văn Nhân Viên",
         "email": "staff@example.com",
         "phone": "0902345678",
+        "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d",
         "password": DEFAULT_PASSWORD,
         "role": Role.STAFF,
         "status": Status.ACTIVE,
@@ -97,6 +99,7 @@ USERS_SEED_DATA = [
         "full_name": "Nguyễn Văn An",
         "email": "customer1@example.com",
         "phone": "0912345001",
+        "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e",
         "password": DEFAULT_PASSWORD,
         "role": Role.CUSTOMER,
         "status": Status.ACTIVE,
@@ -113,6 +116,7 @@ USERS_SEED_DATA = [
         "full_name": "Trần Thị Bình",
         "email": "customer2@example.com",
         "phone": "0912345002",
+        "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330",
         "password": DEFAULT_PASSWORD,
         "role": Role.CUSTOMER,
         "status": Status.ACTIVE,
@@ -129,6 +133,7 @@ USERS_SEED_DATA = [
         "full_name": "Lê Hoàng Cường",
         "email": "customer3@example.com",
         "phone": "0912345003",
+        "avatar": "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61",
         "password": DEFAULT_PASSWORD,
         "role": Role.CUSTOMER,
         "status": Status.ACTIVE,
@@ -145,6 +150,7 @@ USERS_SEED_DATA = [
         "full_name": "Phạm Thị Dung",
         "email": "customer4@example.com",
         "phone": "0912345004",
+        "avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2",
         "password": DEFAULT_PASSWORD,
         "role": Role.CUSTOMER,
         "status": Status.ACTIVE,
@@ -161,6 +167,7 @@ USERS_SEED_DATA = [
         "full_name": "Vũ Đức Em",
         "email": "customer5@example.com",
         "phone": "0912345005",
+        "avatar": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7",
         "password": DEFAULT_PASSWORD,
         "role": Role.CUSTOMER,
         "status": Status.ACTIVE,
@@ -176,7 +183,7 @@ USERS_SEED_DATA = [
 ]
 
 # ==============================================================================
-# 2. DỮ LIỆU SEED DANH MỤC (6 DANH MỤC)
+# 2. DỮ LIỆU SEED DANH MỤC (12 DANH MỤC)
 # ==============================================================================
 CATEGORIES_SEED_DATA = [
     {
@@ -203,10 +210,34 @@ CATEGORIES_SEED_DATA = [
         "name": "Thiết bị thông minh & Smarthome",
         "description": "Camera an ninh, robot hút bụi, máy lọc không khí cho ngôi nhà hiện đại...",
     },
+    {
+        "name": "Thiết bị gia dụng & Đời sống",
+        "description": "Các thiết bị gia dụng nhà bếp, phòng khách, chăm sóc gia đình tiện lợi và hiện đại...",
+    },
+    {
+        "name": "Thời trang & Phụ kiện",
+        "description": "Trang phục nam nữ, phụ kiện thời trang cao cấp, giày dép, túi xách hiện đại...",
+    },
+    {
+        "name": "Mỹ phẩm & Chăm sóc cá nhân",
+        "description": "Dược mỹ phẩm chăm sóc da, trang điểm, nước hoa và thiết bị chăm sóc sắc đẹp...",
+    },
+    {
+        "name": "Màn hình & Linh kiện máy tính",
+        "description": "Màn hình chuyên nghiệp, card đồ họa, CPU, RAM, ổ cứng SSD và nguồn PC cao cấp...",
+    },
+    {
+        "name": "Thể thao & Dã ngoại",
+        "description": "Dụng cụ thể hình, chạy bộ, xe đạp, cắm trại dã ngoại và phụ kiện du lịch khám phá...",
+    },
+    {
+        "name": "Sách & Văn phòng phẩm",
+        "description": "Sách phát triển kỹ năng, kinh doanh, sổ tay cao cấp, bút ký và đồ dùng bàn làm việc...",
+    },
 ]
 
 # ==============================================================================
-# 3. DỮ LIỆU SEED SẢN PHẨM & ẢNH (40 SẢN PHẨM)
+# 3. DỮ LIỆU SEED SẢN PHẨM & ẢNH (81 SẢN PHẨM ĐA DẠNG NGÀNH HÀNG)
 # ==============================================================================
 PRODUCTS_SEED_DATA = [
     # ---------------- 1. Điện thoại & Tablet (7 sản phẩm) ----------------
@@ -627,6 +658,520 @@ PRODUCTS_SEED_DATA = [
             {"image_url": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f", "is_primary": 1, "sort_order": 0},
         ],
     },
+
+    # ---------------- 7. Thiết bị gia dụng & Đời sống (7 sản phẩm) ----------------
+    {
+        "category_name": "Thiết bị gia dụng & Đời sống",
+        "name": "Tủ Lạnh LG Inverter InstaView Door-in-Door 635L",
+        "sku": "APPL-TULANH-LG",
+        "description": "Gõ 2 lần nhìn thấu bên trong, công nghệ làm lạnh LinearCooling giữ thực phẩm tươi ngon suốt 7 ngày.",
+        "price": Decimal("38990000"),
+        "promotional_price": Decimal("34990000"),
+        "stock_quantity": 15,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1584992236310-6edddc08acff", "is_primary": 1, "sort_order": 0},
+            {"image_url": "https://images.unsplash.com/photo-1571175443880-49e1d25b2bc5", "is_primary": 0, "sort_order": 1},
+        ],
+    },
+    {
+        "category_name": "Thiết bị gia dụng & Đời sống",
+        "name": "Máy Giặt Sấy Thông Minh Electrolux UltimateCare 10kg/7kg",
+        "sku": "APPL-MAYGIAT-EL",
+        "description": "Giặt hơi nước Hygienic Care diệt 99.9% vi khuẩn, động cơ EcoInverter êm ái tiết kiệm điện năng vượt trội.",
+        "price": Decimal("17490000"),
+        "promotional_price": Decimal("15290000"),
+        "stock_quantity": 25,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1626806787461-102c1bfaaea1", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thiết bị gia dụng & Đời sống",
+        "name": "Nồi Cơm Điện Cao Tần Cuckoo 1.8L Áp Suất Kép",
+        "sku": "APPL-NOICOM-CK",
+        "description": "Lòng nồi phủ men X-Wall Black Shine chống dính cao cấp, chế độ áp suất kép nấu cơm dẻo mềm chuẩn vị Hàn Quốc.",
+        "price": Decimal("8590000"),
+        "promotional_price": Decimal("7690000"),
+        "stock_quantity": 40,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1544233726-9f1d2b27be8b", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thiết bị gia dụng & Đời sống",
+        "name": "Máy Pha Cà Phê Tự Động DeLonghi Magnifica S",
+        "sku": "APPL-COFFEE-DL",
+        "description": "Xay hạt và pha chế espresso, cappuccino tự động chuẩn vị Ý, tích hợp vòi đánh sữa bông mịn.",
+        "price": Decimal("19900000"),
+        "promotional_price": Decimal("17900000"),
+        "stock_quantity": 20,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6", "is_primary": 1, "sort_order": 0},
+            {"image_url": "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f", "is_primary": 0, "sort_order": 1},
+        ],
+    },
+    {
+        "category_name": "Thiết bị gia dụng & Đời sống",
+        "name": "Lò Vi Sóng Điện Tử Có Nướng Panasonic 27L Inverter",
+        "sku": "APPL-MICROWAVE-PN",
+        "description": "Khoang lò không đĩa xoay rộng rãi, công nghệ Inverter kiểm soát nhiệt đều giúp rã đông nhanh và nướng giòn.",
+        "price": Decimal("4890000"),
+        "promotional_price": Decimal("4290000"),
+        "stock_quantity": 35,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1574269909862-7e1d70bb8078", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thiết bị gia dụng & Đời sống",
+        "name": "Bàn Là Hơi Nước Đứng Philips ComfortTouch Plus",
+        "sku": "APPL-STEAMER-PL",
+        "description": "Mặt đế FlexHead ủi phẳng nhanh mọi chất liệu lụa, dạ mà không lo cháy sém, công suất hơi nước 2000W liên tục.",
+        "price": Decimal("3290000"),
+        "promotional_price": Decimal("2890000"),
+        "stock_quantity": 50,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1582735689369-4fe89db7114c", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thiết bị gia dụng & Đời sống",
+        "name": "Máy Hút Bụi Cầm Tay Không Dây Dyson V15 Detect Absolute",
+        "sku": "APPL-DYSON-V15",
+        "description": "Tia laser chiếu rõ hạt bụi siêu nhỏ mắt thường không thấy, cảm biến Piezo đo kích thước hạt bụi và tự tăng lực hút.",
+        "price": Decimal("22990000"),
+        "promotional_price": Decimal("20490000"),
+        "stock_quantity": 18,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1558317374-067fb5f30001", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+
+    # ---------------- 8. Thời trang & Phụ kiện (7 sản phẩm) ----------------
+    {
+        "category_name": "Thời trang & Phụ kiện",
+        "name": "Áo Khoác Bomber Nam Da Thật Cao Cấp Classic Retro",
+        "sku": "FASH-BOMBER-LTH",
+        "description": "Chất liệu da cừu thật 100% mềm mịn, lót lụa giữ nhiệt, khóa kéo kim loại YKK cao cấp phong cách lịch lãm.",
+        "price": Decimal("3850000"),
+        "promotional_price": Decimal("3290000"),
+        "stock_quantity": 30,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5", "is_primary": 1, "sort_order": 0},
+            {"image_url": "https://images.unsplash.com/photo-1521223890158-f9f7c3d5d504", "is_primary": 0, "sort_order": 1},
+        ],
+    },
+    {
+        "category_name": "Thời trang & Phụ kiện",
+        "name": "Giày Thể Thao Nam Nike Air Jordan 1 Retro High OG",
+        "sku": "FASH-SNEAKER-AJ1",
+        "description": "Biểu tượng thời trang đường phố huyền thoại, đệm Air-Sole êm ái nâng đỡ bàn chân suốt ngày dài năng động.",
+        "price": Decimal("5490000"),
+        "promotional_price": Decimal("4990000"),
+        "stock_quantity": 45,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1552346154-21d32810aba3", "is_primary": 1, "sort_order": 0},
+            {"image_url": "https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2", "is_primary": 0, "sort_order": 1},
+        ],
+    },
+    {
+        "category_name": "Thời trang & Phụ kiện",
+        "name": "Áo Thun Nam Cotton Pima Chống Nhăn Dáng Slimfit",
+        "sku": "FASH-TSHIRT-PIMA",
+        "description": "Sợi bông Pima cao cấp dài gấp đôi sợi thông thường, thoáng mát thấm hút mồ hôi, bền màu sau nhiều lần giặt.",
+        "price": Decimal("450000"),
+        "promotional_price": Decimal("380000"),
+        "stock_quantity": 120,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thời trang & Phụ kiện",
+        "name": "Balo Du Lịch Đa Năng Chống Thấm Nước Có Ngăn Laptop",
+        "sku": "FASH-BACKPACK-TRV",
+        "description": "Chất liệu vải Oxford 900D kháng nước vượt trội, ngăn chống sốc laptop 16 inch riêng biệt, cổng sạc USB tích hợp tiện lợi.",
+        "price": Decimal("1250000"),
+        "promotional_price": Decimal("990000"),
+        "stock_quantity": 65,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thời trang & Phụ kiện",
+        "name": "Kính Mát Phân Cực Ray-Ban Aviator Classic",
+        "sku": "FASH-SUNGLASS-RB",
+        "description": "Gọng kính kim loại mạ vàng sang trọng, tròng kính phân cực chống 100% tia UV và bảo vệ mắt tối ưu dưới nắng gắt.",
+        "price": Decimal("4250000"),
+        "promotional_price": Decimal("3750000"),
+        "stock_quantity": 35,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1511499767150-a48a237f0083", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thời trang & Phụ kiện",
+        "name": "Ví Da Bò Nam Dáng Đứng Khắc Laser Chống Quét RFID",
+        "sku": "FASH-WALLET-LEAT",
+        "description": "Da bò sáp nhập khẩu tạo vết xước vintage cá tính, lớp lót chống trộm sóng RFID bảo vệ thẻ ngân hàng an toàn.",
+        "price": Decimal("680000"),
+        "promotional_price": Decimal("550000"),
+        "stock_quantity": 90,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1627123424574-724758594e93", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thời trang & Phụ kiện",
+        "name": "Đầm Dạ Hội Nữ Xẻ Tà Dáng Dài Tôn Dáng Sang Trọng",
+        "sku": "FASH-DRESS-EVE",
+        "description": "Chất liệu lụa satin cao cấp rủ sóng mềm mại, thiết kế xẻ tà quyến rũ thích hợp cho tiệc tối và sự kiện trang trọng.",
+        "price": Decimal("1890000"),
+        "promotional_price": Decimal("1590000"),
+        "stock_quantity": 40,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1539109136881-3be0616acf4b", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+
+    # ---------------- 9. Mỹ phẩm & Chăm sóc cá nhân (7 sản phẩm) ----------------
+    {
+        "category_name": "Mỹ phẩm & Chăm sóc cá nhân",
+        "name": "Serum Dưỡng Trắng & Phục Hồi Da Estee Lauder Advanced Night Repair 50ml",
+        "sku": "BEAU-SERUM-EL50",
+        "description": "Công nghệ Chronolux Power Signal phục hồi tế bào da ban đêm, cấp ẩm sâu, làm mờ nếp nhăn và trẻ hóa làn da.",
+        "price": Decimal("3450000"),
+        "promotional_price": Decimal("2950000"),
+        "stock_quantity": 50,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be", "is_primary": 1, "sort_order": 0},
+            {"image_url": "https://images.unsplash.com/photo-1608248597359-5776a3e14309", "is_primary": 0, "sort_order": 1},
+        ],
+    },
+    {
+        "category_name": "Mỹ phẩm & Chăm sóc cá nhân",
+        "name": "Kem Chống Nắng Phổ Rộng La Roche-Posay Anthelios 50ml",
+        "sku": "BEAU-SUNSCREEN-LRP",
+        "description": "Chỉ số chống nắng SPF 50+ PA++++ với màng lọc Mexoryl 400 bảo vệ da trước tia UVA siêu dài, kiềm dầu khô thoáng 12h.",
+        "price": Decimal("495000"),
+        "promotional_price": Decimal("435000"),
+        "stock_quantity": 110,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1556228720-195a672e8a03", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Mỹ phẩm & Chăm sóc cá nhân",
+        "name": "Nước Hoa Nam Bleu de Chanel Eau de Parfum 100ml",
+        "sku": "BEAU-PERFUME-CHANEL",
+        "description": "Hương thơm gỗ tuyết tùng trầm ấm hòa quyện cùng bạc hà và bưởi thanh mát, phong cách nam tính quyến rũ bất tận.",
+        "price": Decimal("4200000"),
+        "promotional_price": Decimal("3850000"),
+        "stock_quantity": 30,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1523293182086-7651a899d37f", "is_primary": 1, "sort_order": 0},
+            {"image_url": "https://images.unsplash.com/photo-1594035910387-fea47794261f", "is_primary": 0, "sort_order": 1},
+        ],
+    },
+    {
+        "category_name": "Mỹ phẩm & Chăm sóc cá nhân",
+        "name": "Máy Sấy Tóc Tạo Ion Âm Chống Hư Tổn Dyson Supersonic HD15",
+        "sku": "BEAU-DYSON-HAIR",
+        "description": "Động cơ kỹ thuật số V9 quay 110.000 vòng/phút, kiểm soát nhiệt thông minh bảo vệ độ bóng tự nhiên của mái tóc.",
+        "price": Decimal("13490000"),
+        "promotional_price": Decimal("11990000"),
+        "stock_quantity": 22,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Mỹ phẩm & Chăm sóc cá nhân",
+        "name": "Bàn Chải Điện Sóng Âm Oral-B iO Series 9 Cảm Biến AI",
+        "sku": "BEAU-TOOTHBRUSH-OB",
+        "description": "Công nghệ từ tính kết hợp rung vi mô làm sạch sâu từng kẽ răng, cảm biến áp lực thông minh bảo vệ nướu tối đa.",
+        "price": Decimal("5690000"),
+        "promotional_price": Decimal("4990000"),
+        "stock_quantity": 45,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1559656914-a30970c1affd", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Mỹ phẩm & Chăm sóc cá nhân",
+        "name": "Son Môi Cao Cấp Tom Ford Lip Color Matte 03 Casablanca",
+        "sku": "BEAU-LIPSTICK-TF",
+        "description": "Chất son lì mịn như nhung, thành phần chiết xuất hạt đậu nành và tinh dầu hoa cúc giữ ẩm môi căng mọng suốt 8 giờ.",
+        "price": Decimal("1450000"),
+        "promotional_price": Decimal("1290000"),
+        "stock_quantity": 70,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1586495777744-4413f21062fa", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Mỹ phẩm & Chăm sóc cá nhân",
+        "name": "Máy Rửa Mặt Sóng Âm Silicon Cao Cấp Foreo Luna 4",
+        "sku": "BEAU-FOREO-LUNA4",
+        "description": "Đầu gai silicon kháng khuẩn mềm hơn 17%, 16 cường độ sóng âm T-Sonic loại bỏ 99.5% bụi bẩn, dầu thừa và bã nhờn.",
+        "price": Decimal("4890000"),
+        "promotional_price": Decimal("4290000"),
+        "stock_quantity": 35,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+
+    # ---------------- 10. Màn hình & Linh kiện máy tính (7 sản phẩm) ----------------
+    {
+        "category_name": "Màn hình & Linh kiện máy tính",
+        "name": "Màn Hình Đồ Họa Chuyên Nghiệp Dell UltraSharp 27 inch 4K U2723QE",
+        "sku": "COMP-MONITOR-DELL27",
+        "description": "Tấm nền IPS Black đầu tiên trên thế giới cho tỷ lệ tương phản 2000:1, chuẩn màu 98% DCI-P3, cổng kết nối USB-C 90W PD.",
+        "price": Decimal("14890000"),
+        "promotional_price": Decimal("13590000"),
+        "stock_quantity": 28,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf", "is_primary": 1, "sort_order": 0},
+            {"image_url": "https://images.unsplash.com/photo-1585792180666-f7347c490ee2", "is_primary": 0, "sort_order": 1},
+        ],
+    },
+    {
+        "category_name": "Màn hình & Linh kiện máy tính",
+        "name": "Card Màn Hình ASUS ROG Strix GeForce RTX 4080 Super 16GB",
+        "sku": "COMP-VGA-RTX4080",
+        "description": "Kiến trúc Ada Lovelace với DLSS 3 đột phá đồ họa AI, tản nhiệt buồng hơi MaxContact siêu mát cho game thủ đỉnh cao.",
+        "price": Decimal("33990000"),
+        "promotional_price": Decimal("31490000"),
+        "stock_quantity": 12,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1587202372775-e229f172b9d7", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Màn hình & Linh kiện máy tính",
+        "name": "Ổ Cứng SSD Samsung 990 Pro 2TB PCIe 4.0 NVMe M.2",
+        "sku": "COMP-SSD-SAM990",
+        "description": "Tốc độ đọc tuần tự lên đến 7450 MB/s, công nghệ tản nhiệt mạ niken thông minh duy trì hiệu suất đọc ghi ổn định lâu dài.",
+        "price": Decimal("4850000"),
+        "promotional_price": Decimal("4390000"),
+        "stock_quantity": 60,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Màn hình & Linh kiện máy tính",
+        "name": "Bộ Vi Xử Lý CPU Intel Core i9-14900K 24 Nhân 32 Luồng",
+        "sku": "COMP-CPU-INTEL-I9",
+        "description": "Xung nhịp tối đa lên tới 6.0GHz với Intel Thermal Velocity Boost, sức mạnh áp đảo cho dựng phim 8K và gaming đỉnh chóp.",
+        "price": Decimal("15690000"),
+        "promotional_price": Decimal("14490000"),
+        "stock_quantity": 20,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Màn hình & Linh kiện máy tính",
+        "name": "RAM Corsair Dominator Titanium DDR5 64GB (2x32GB) 6000MHz",
+        "sku": "COMP-RAM-CORSAIR64",
+        "description": "Thiết kế nhôm đúc tinh xảo, đèn LED Capellix RGB siêu sáng, chip nhớ tuyển chọn hỗ trợ ép xung Intel XMP 3.0 mượt mà.",
+        "price": Decimal("7990000"),
+        "promotional_price": Decimal("7290000"),
+        "stock_quantity": 35,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1562976540-1502c2145186", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Màn hình & Linh kiện máy tính",
+        "name": "Màn Hình Gaming Cong Samsung Odyssey OLED G9 49 inch 240Hz",
+        "sku": "COMP-MONITOR-G9",
+        "description": "Độ cong 1800R chuẩn rạp chiếu phim, tỷ lệ siêu rộng 32:9 độ phân giải Dual QHD, thời gian phản hồi 0.03ms cực nhanh.",
+        "price": Decimal("39990000"),
+        "promotional_price": Decimal("35990000"),
+        "stock_quantity": 10,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1547119957-637f8679db1e", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Màn hình & Linh kiện máy tính",
+        "name": "Nguồn Máy Tính Corsair RM1000x 1000W 80 Plus Gold Modular",
+        "sku": "COMP-PSU-RM1000X",
+        "description": "Chuẩn hiệu suất 80 Plus Gold tiết kiệm điện, quạt tản nhiệt FDB 135mm chế độ Zero RPM hoàn toàn im lặng ở tải trung bình.",
+        "price": Decimal("4590000"),
+        "promotional_price": Decimal("4190000"),
+        "stock_quantity": 40,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1587202372634-32705e3bf49c", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+
+    # ---------------- 11. Thể thao & Dã ngoại (7 sản phẩm) ----------------
+    {
+        "category_name": "Thể thao & Dã ngoại",
+        "name": "Xe Đạp Thể Thao Địa Hình Giant ATX 830 Bánh 27.5 inch",
+        "sku": "SPO-BIKE-GIANT830",
+        "description": "Khung nhôm Aluxx siêu nhẹ bền bỉ, bộ truyền động Shimano Altus 27 tốc độ, phanh đĩa dầu thủy lực an toàn trên mọi cung đường.",
+        "price": Decimal("12800000"),
+        "promotional_price": Decimal("11500000"),
+        "stock_quantity": 18,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1485965120184-e220f721d03e", "is_primary": 1, "sort_order": 0},
+            {"image_url": "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7", "is_primary": 0, "sort_order": 1},
+        ],
+    },
+    {
+        "category_name": "Thể thao & Dã ngoại",
+        "name": "Lều Cắm Trại Tự Bung Chống Nước 4-6 Người Naturehike Ango",
+        "sku": "SPO-TENT-NATANGO",
+        "description": "Cơ chế tự bung dựng lều trong 30 giây, vải Oxford 210D tráng bạc chỉ số chống nắng UPF 50+, chống mưa lớn chuẩn PU2000mm.",
+        "price": Decimal("3250000"),
+        "promotional_price": Decimal("2850000"),
+        "stock_quantity": 35,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4", "is_primary": 1, "sort_order": 0},
+            {"image_url": "https://images.unsplash.com/photo-1510312305653-8ed496efae75", "is_primary": 0, "sort_order": 1},
+        ],
+    },
+    {
+        "category_name": "Thể thao & Dã ngoại",
+        "name": "Thảm Tập Yoga Cao Su Tự Nhiên Liforme Alignment Chống Trượt",
+        "sku": "SPO-YOGA-LIFORME",
+        "description": "Hệ thống định tuyến AlignForMe độc quyền dẫn hướng chuẩn tư thế yoga, bề mặt bám dính tuyệt đối kể cả khi đổ mồ hôi.",
+        "price": Decimal("3450000"),
+        "promotional_price": Decimal("3090000"),
+        "stock_quantity": 50,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thể thao & Dã ngoại",
+        "name": "Bộ Tạ Tay Đa Năng Điều Chỉnh Khối Lượng Bowflex SelectTech 552",
+        "sku": "SPO-DUMBBELL-BOW",
+        "description": "Tích hợp 15 mức tạ từ 2kg đến 24kg chỉ với 1 núm xoay chuyển đổi, tiết kiệm không gian phòng tập gia đình tối đa.",
+        "price": Decimal("7990000"),
+        "promotional_price": Decimal("6990000"),
+        "stock_quantity": 22,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thể thao & Dã ngoại",
+        "name": "Bình Giữ Nhiệt Thể Thao Inox 316 Stanley The IceFlow Flip Straw 890ml",
+        "sku": "SPO-BOTTLE-STANLEY",
+        "description": "Ruột inox 316 cao cấp an toàn tuyệt đối, giữ lạnh đá viên suốt 48 giờ, quai xách tiện dụng cho tập gym và leo núi dã ngoại.",
+        "price": Decimal("1150000"),
+        "promotional_price": Decimal("990000"),
+        "stock_quantity": 80,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1602143407151-7111542de6e8", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thể thao & Dã ngoại",
+        "name": "Vợt Cầu Lông Yonex Astrox 100ZZ Kurenai Khung Carbon Cao Cấp",
+        "sku": "SPO-RACKET-YONEX",
+        "description": "Công nghệ đũa vợt Hyper Slim Shaft siêu mỏng cản gió thấp, điểm cân bằng nặng đầu mang lại những cú đập cầu uy lực sấm sét.",
+        "price": Decimal("4150000"),
+        "promotional_price": Decimal("3750000"),
+        "stock_quantity": 40,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Thể thao & Dã ngoại",
+        "name": "Gậy Leo Núi Chống Sốc Hợp Kim Nhôm Siêu Nhẹ Naturehike",
+        "sku": "SPO-POLE-TREKNH",
+        "description": "Hệ thống lò xo giảm chấn lực tác động lên khớp gối, tay cầm mút EVA thấm hút mồ hôi êm ái, khóa chốt gập thu gọn dễ mang theo.",
+        "price": Decimal("480000"),
+        "promotional_price": Decimal("390000"),
+        "stock_quantity": 75,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1551632811-561732d1e306", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+
+    # ---------------- 12. Sách & Văn phòng phẩm (6 sản phẩm) ----------------
+    {
+        "category_name": "Sách & Văn phòng phẩm",
+        "name": "Bộ Sách Tư Duy Tinh Gọn & Khởi Nghiệp Tinh Gọn (Trọn bộ 3 cuốn)",
+        "sku": "BOOK-STARTUP-SET",
+        "description": "Cẩm nang gối đầu giường của các nhà sáng lập và quản lý hiện đại: Tinh gọn quy trình, tối ưu chi phí và bứt phá doanh số.",
+        "price": Decimal("450000"),
+        "promotional_price": Decimal("380000"),
+        "stock_quantity": 100,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c", "is_primary": 1, "sort_order": 0},
+            {"image_url": "https://images.unsplash.com/photo-1512820790803-83ca734da794", "is_primary": 0, "sort_order": 1},
+        ],
+    },
+    {
+        "category_name": "Sách & Văn phòng phẩm",
+        "name": "Sổ Tay Bìa Da Khóa Nam Châm Cao Cấp Giấy Dày Chống Lóa",
+        "sku": "STAT-NOTEBOOK-LEA",
+        "description": "Bìa da PU nhập khẩu chống nước, giấy định lượng 100gsm kẻ ngang mịn màng chống thấm mực sang trang sau.",
+        "price": Decimal("250000"),
+        "promotional_price": Decimal("199000"),
+        "stock_quantity": 150,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1531346878377-a5be20888e57", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Sách & Văn phòng phẩm",
+        "name": "Bút Ký Kim Loại Parker Sonnet Lacquer Black Cài Vàng 18K",
+        "sku": "STAT-PEN-PARKER",
+        "description": "Thân bút phủ sơn mài đen tuyền bóng bẩy, ngòi bi trơn mượt mực đều đặn, cài bút mạ vàng 18K biểu tượng mũi tên danh giá.",
+        "price": Decimal("3650000"),
+        "promotional_price": Decimal("3250000"),
+        "stock_quantity": 30,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Sách & Văn phòng phẩm",
+        "name": "Bộ Sách Tâm Lý Học Hành Vi & Thao Túng Tâm Lý (Combo 4 cuốn)",
+        "sku": "BOOK-PSYCHOLOGY-4",
+        "description": "Tuyển tập sách tâm lý học kinh điển phân tích ngôn ngữ cơ thể, đọc vị cảm xúc và kỹ năng giao tiếp thuyết phục đỉnh cao.",
+        "price": Decimal("520000"),
+        "promotional_price": Decimal("440000"),
+        "stock_quantity": 85,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1497633762265-9d179a990aa6", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Sách & Văn phòng phẩm",
+        "name": "Kệ Sách Gỗ Tự Nhiên Lắp Ghép Đa Năng 5 Tầng",
+        "sku": "STAT-SHELF-WOOD5",
+        "description": "Gỗ cao su tự nhiên qua xử lý chống mối mọt cong vênh, kết cấu ngàm lắp ghép chắc chắn chịu tải trọng 20kg mỗi tầng.",
+        "price": Decimal("1150000"),
+        "promotional_price": Decimal("950000"),
+        "stock_quantity": 40,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd", "is_primary": 1, "sort_order": 0},
+        ],
+    },
+    {
+        "category_name": "Sách & Văn phòng phẩm",
+        "name": "Đèn Đọc Sách Chống Cận Thị Điều Chỉnh 3 Chế Độ Ánh Sáng",
+        "sku": "STAT-READING-LAMP",
+        "description": "Ánh sáng dịu mắt không nhấp nháy, kẹp bàn linh hoạt xoay 360 độ, pin lithium sạc lại dùng liên tục 15 giờ.",
+        "price": Decimal("320000"),
+        "promotional_price": Decimal("260000"),
+        "stock_quantity": 90,
+        "images": [
+            {"image_url": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c", "is_primary": 1, "sort_order": 0},
+        ],
+    },
 ]
 
 
@@ -670,6 +1215,7 @@ def seed_database(db: Session | None = None):
                 full_name=item["full_name"],
                 email=item["email"],
                 phone=item["phone"],
+                avatar=item.get("avatar"),
                 password_hash=hash_password(item["password"]),
                 role=item["role"],
                 status=item["status"],

@@ -5,7 +5,7 @@ from typing import Optional, TYPE_CHECKING
 from enum import Enum
 import enum
 
-from sqlalchemy import DateTime, String, func, BigInteger, ForeignKey, Enum as SQLEnum
+from sqlalchemy import DateTime, String, func, BigInteger, Integer, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -26,7 +26,7 @@ class OrderStatus(str, enum.Enum):
 class OrderStatusHistory(Base):
     __tablename__ = "order_status_histories"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     order_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
     changed_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     
