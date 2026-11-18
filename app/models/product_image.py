@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 class ProductImage(Base):
     __tablename__ = "product_images"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     product_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     image_url: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)

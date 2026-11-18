@@ -79,8 +79,26 @@ def decrease_stock(
             ),
         )
 
-    stock_after = stock_before - quantity
-    product.stock_quantity = stock_after
+    # Cập nhật nguyên tử có điều kiện (Atomic Conditional Update)
+    # Bảo vệ 2 lớp kết hợp SELECT FOR UPDATE, chống race-condition 2 người cùng mua sản phẩm cuối
+    from sqlalchemy import update
+    stmt = (
+        update(Product)
+        .where(Product.id == product_id, Product.stock_quantity >= quantity)
+        .values(stock_quantity=Product.stock_quantity - quantity)
+    )
+    result = db.execute(stmt)
+    if result.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Sản phẩm '{product.name}' không đủ tồn kho. Còn lại: {product.stock_quantity},"
+                f" yêu cầu: {quantity}"
+            ),
+        )
+
+    db.refresh(product)
+    stock_after = product.stock_quantity
 
     # Ghi log biến động kho vào bảng stock_logs
     stock_log = StockLog(
