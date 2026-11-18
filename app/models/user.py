@@ -33,6 +33,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     phone: Mapped[str] = mapped_column(String(15), nullable=False)
+    avatar: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(SQL_Enum(Role), nullable=False, default=Role.CUSTOMER)
     status: Mapped[str] = mapped_column(SQL_Enum(Status), nullable=False, default=Status.ACTIVE)
