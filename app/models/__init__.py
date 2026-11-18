@@ -12,3 +12,4 @@ from app.models.order import Order, PaymentMethod, OrderStatus
 from app.models.order_item import OrderItem
 from app.models.order_status_histories import OrderStatusHistory
 from app.models.stock_log import StockLog, ChangeType
+from app.models.voucher import Voucher

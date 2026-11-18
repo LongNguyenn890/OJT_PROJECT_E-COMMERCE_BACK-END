@@ -11,6 +11,12 @@ Bao gồm:
 - order_histories: Schemas danh sách và lịch sử trạng thái đơn hàng.
 - stock_log: Schemas quản lý tồn kho, nhập hàng, kiểm kê và cảnh báo sắp hết hàng.
 """
+from app.schemas.voucher import (
+    VoucherTier,
+    RedeemVoucherRequest,
+    VoucherResponse,
+    RewardPointsInfoResponse,
+)
 from app.schemas.customer import (
     CustomerOrderSummary,
     CustomerListItemResponse,

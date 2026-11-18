@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from .address import Address
     from .cart import Cart
     from .order import Order
+    from .voucher import Voucher
 
 
 class Role(str, Enum):
@@ -35,6 +36,7 @@ class User(Base):
     phone: Mapped[str] = mapped_column(String(15), nullable=False)
     avatar: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    reward_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     role: Mapped[str] = mapped_column(SQL_Enum(Role), nullable=False, default=Role.CUSTOMER)
     status: Mapped[str] = mapped_column(SQL_Enum(Status), nullable=False, default=Status.ACTIVE)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -50,3 +52,6 @@ class User(Base):
         "Cart", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
     orders: Mapped[List["Order"]] = relationship("Order", back_populates="user")
+    vouchers: Mapped[List["Voucher"]] = relationship(
+        "Voucher", back_populates="user", cascade="all, delete-orphan"
+    )

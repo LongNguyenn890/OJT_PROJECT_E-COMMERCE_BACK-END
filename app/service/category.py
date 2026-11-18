@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.models.category import Category
 from app.models.product import Product
+from app.models.order import Order, OrderStatus
+from app.models.order_item import OrderItem
 from app.schemas.category import CategoryCreate, CategoryUpdate
 
 
@@ -31,7 +33,7 @@ def get_all_categories(
         keyword: Từ khóa tìm kiếm theo tên danh mục (nếu có).
 
     Returns:
-        Danh sách các đối tượng Category kèm số lượng sản phẩm.
+        Danh sách các đối tượng Category kèm số lượng sản phẩm, số lượng đã bán và số người mua.
     """
     query = db.query(Category)
     if keyword and keyword.strip():
@@ -39,9 +41,25 @@ def get_all_categories(
 
     categories = query.order_by(Category.id.asc()).all()
 
-    # Tính toán số lượng sản phẩm thuộc từng danh mục
+    # Tính toán số lượng sản phẩm, số lượng đã bán và số người mua cho từng danh mục
     for cat in categories:
         cat.product_count = db.query(Product).filter(Product.category_id == cat.id).count()
+        sold_qty = (
+            db.query(func.coalesce(func.sum(OrderItem.quantity), 0))
+            .join(Product, OrderItem.product_id == Product.id)
+            .join(Order, OrderItem.order_id == Order.id)
+            .filter(Product.category_id == cat.id, Order.status != OrderStatus.CANCELLED)
+            .scalar()
+        )
+        cat.sold_count = int(sold_qty or 0)
+        buyers = (
+            db.query(func.count(func.distinct(Order.user_id)))
+            .join(OrderItem, Order.id == OrderItem.order_id)
+            .join(Product, OrderItem.product_id == Product.id)
+            .filter(Product.category_id == cat.id, Order.status != OrderStatus.CANCELLED)
+            .scalar()
+        )
+        cat.buyer_count = int(buyers or 0)
 
     return categories
 
@@ -67,6 +85,22 @@ def get_category_by_id(db: Session, category_id: int) -> Category:
         )
 
     category.product_count = db.query(Product).filter(Product.category_id == category.id).count()
+    sold_qty = (
+        db.query(func.coalesce(func.sum(OrderItem.quantity), 0))
+        .join(Product, OrderItem.product_id == Product.id)
+        .join(Order, OrderItem.order_id == Order.id)
+        .filter(Product.category_id == category.id, Order.status != OrderStatus.CANCELLED)
+        .scalar()
+    )
+    category.sold_count = int(sold_qty or 0)
+    buyers = (
+        db.query(func.count(func.distinct(Order.user_id)))
+        .join(OrderItem, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .filter(Product.category_id == category.id, Order.status != OrderStatus.CANCELLED)
+        .scalar()
+    )
+    category.buyer_count = int(buyers or 0)
     return category
 
 

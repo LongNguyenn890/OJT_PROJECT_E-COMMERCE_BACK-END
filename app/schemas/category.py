@@ -53,6 +53,8 @@ class CategoryResponse(CategoryBase):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     product_count: int | None = Field(default=None, description="Số lượng sản phẩm thuộc danh mục này")
+    sold_count: int | None = Field(default=0, description="Tổng số lượng sản phẩm đã bán trong danh mục")
+    buyer_count: int | None = Field(default=0, description="Tổng số khách hàng/lượt mua của danh mục")
 
 
 class CategoryDeleteResponse(BaseModel):

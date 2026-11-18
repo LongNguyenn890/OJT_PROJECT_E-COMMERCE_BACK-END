@@ -48,6 +48,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     phone: str
     avatar: Optional[str] = None
+    reward_points: int = 0
     role: Role
     status: Status
     created_at: Optional[datetime] = None

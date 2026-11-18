@@ -47,6 +47,9 @@ async def lifespan(app: FastAPI):
                 if "avatar" not in user_columns:
                     conn.execute(text("ALTER TABLE users ADD COLUMN avatar VARCHAR(255) NULL"))
                     conn.commit()
+                if "reward_points" not in user_columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN reward_points INT NOT NULL DEFAULT 0"))
+                    conn.commit()
         print(f"[DB] Đã kết nối MySQL {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}")
     except OperationalError as error:
         print("[DB] KHÔNG kết nối được MySQL! Kiểm tra MySQL đã bật chưa và file .env.")

@@ -55,6 +55,7 @@ def list_products(
     page_size: int = Query(10, ge=1, le=100),
     search: str | None = Query(None, min_length=1, description="Search product name"),
     category_id: int | None = Query(None, ge=1, description="Filter by category ID"),
+    category_ids: str | None = Query(None, description="Filter by multiple category IDs (comma-separated, e.g. 7,8,9)"),
     min_price: float | None = Query(None, ge=0, description="Minimum price"),
     max_price: float | None = Query(None, ge=0, description="Maximum price"),
     in_stock: bool | None = Query(None, description="true: còn hàng, false: hết hàng"),
@@ -68,7 +69,11 @@ def list_products(
     query = _active_products_query(db)
     if search and search.strip():
         query = query.filter(Product.name.ilike(f"%{search.strip()}%"))
-    if category_id is not None:
+    if category_ids and category_ids.strip():
+        parsed_ids = [int(x.strip()) for x in category_ids.split(",") if x.strip().isdigit()]
+        if parsed_ids:
+            query = query.filter(Product.category_id.in_(parsed_ids))
+    elif category_id is not None:
         query = query.filter(Product.category_id == category_id)
     if min_price is not None:
         query = query.filter(Product.price >= min_price)
