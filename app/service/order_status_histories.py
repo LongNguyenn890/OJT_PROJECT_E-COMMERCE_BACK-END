@@ -56,7 +56,12 @@ def get_orders_by_user(
 
     total = query.count()
     orders = (
-        query.order_by(Order.created_at.desc())
+        query.options(
+            selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.product_images),
+            selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.category),
+            selectinload(Order.histories),
+        )
+        .order_by(Order.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -87,7 +92,12 @@ def get_all_orders(
 
     total = query.count()
     orders = (
-        query.order_by(Order.created_at.desc())
+        query.options(
+            selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.product_images),
+            selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.category),
+            selectinload(Order.histories),
+        )
+        .order_by(Order.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -227,7 +237,12 @@ def get_all_orders_admin(
         )
     total = query.count()
     orders = (
-        query.order_by(Order.created_at.desc())
+        query.options(
+            selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.product_images),
+            selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.category),
+            selectinload(Order.histories),
+        )
+        .order_by(Order.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()

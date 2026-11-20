@@ -118,11 +118,61 @@ def read_all_orders(
         page_size=page_size,
     )
 
+    result_items = []
+    for o in orders:
+        items_payload = []
+        for it in (o.items or []):
+            prod = it.product
+            primary_img = None
+            category_name = None
+            sku = None
+            if prod:
+                sku = prod.sku or f"SP-{prod.id}"
+                if prod.category:
+                    category_name = prod.category.name
+                if prod.product_images:
+                    for img in prod.product_images:
+                        if img.is_primary:
+                            primary_img = img.image_url
+                            break
+                    if not primary_img and prod.product_images:
+                        primary_img = prod.product_images[0].image_url
+            items_payload.append({
+                "id": it.id,
+                "order_id": it.order_id,
+                "product_id": it.product_id,
+                "product_name": it.product_name,
+                "unit_price": it.unit_price,
+                "quantity": it.quantity,
+                "subtotal": it.subtotal,
+                "image_url": primary_img,
+                "category_name": category_name,
+                "sku": sku,
+            })
+        order_dict = {
+            "id": o.id,
+            "order_code": o.order_code,
+            "receiver_name": o.receiver_name,
+            "receiver_phone": o.receiver_phone,
+            "shipping_address": o.shipping_address,
+            "note": o.note,
+            "payment_method": str(o.payment_method.value if hasattr(o.payment_method, "value") else o.payment_method),
+            "subtotal_amount": o.subtotal_amount or (o.total_amount - (o.shipping_fee or 0)),
+            "shipping_fee": o.shipping_fee or 0,
+            "total_amount": o.total_amount,
+            "status": normalize_status_code(o.status),
+            "cancel_reason": o.cancel_reason,
+            "created_at": o.created_at,
+            "completed_at": o.completed_at,
+            "items": items_payload,
+        }
+        result_items.append(order_dict)
+
     return {
         "total": total,
         "page": page,
         "page_size": page_size,
-        "items": orders,
+        "items": result_items,
     }
 
 
