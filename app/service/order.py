@@ -98,8 +98,13 @@ def create_order(
             )
 
     # 3. Tính toán tiền hàng ở server chỉ trên các sản phẩm được tích chọn
+    def get_effective_price(p):
+        if p and p.promotional_price is not None and p.promotional_price >= 0 and (p.price is None or p.promotional_price < p.price):
+            return int(p.promotional_price)
+        return int(p.price) if p and p.price is not None else 0
+
     subtotal_amount = sum(
-        int(item.product.price) * item.quantity for item in items_to_order
+        get_effective_price(item.product) * item.quantity for item in items_to_order
     )
     # Phí ship: Miễn phí từ 500.000đ, dưới 500.000đ là 30.000đ
     shipping_fee = 0 if subtotal_amount >= 500_000 else 30_000
@@ -159,6 +164,7 @@ def create_order(
 
         # 4.3. Trừ tồn kho bằng hàm decrease_stock của module Kho & tạo OrderItem cho các món được chọn
         for item in items_to_order:
+            item_effective_price = get_effective_price(item.product)
             # Hàm decrease_stock dùng SELECT FOR UPDATE để khóa hàng, chống 2 người mua làm âm kho
             decrease_stock(
                 db=db,
@@ -174,9 +180,9 @@ def create_order(
                 order_id=order.id,
                 product_id=item.product_id,
                 product_name=item.product.name,
-                unit_price=int(item.product.price),
+                unit_price=item_effective_price,
                 quantity=item.quantity,
-                subtotal=int(item.product.price) * item.quantity,
+                subtotal=item_effective_price * item.quantity,
             )
             db.add(order_item)
 

@@ -59,6 +59,7 @@ def list_products(
     min_price: float | None = Query(None, ge=0, description="Minimum price"),
     max_price: float | None = Query(None, ge=0, description="Maximum price"),
     in_stock: bool | None = Query(None, description="true: còn hàng, false: hết hàng"),
+    is_visible: int | None = Query(None, description="1: Hiển thị, 0: Ẩn, -1: Tất cả trạng thái"),
     sort: str = Query("newest", pattern="^(price_asc|price_desc|newest|best_selling)$", description="price_asc, price_desc, newest, best_selling"),
     db: Session = Depends(get_db),
 ):
@@ -66,9 +67,17 @@ def list_products(
     if min_price is not None and max_price is not None and min_price > max_price:
         raise HTTPException(status_code=422, detail="min_price must be less than or equal to max_price")
 
-    query = _active_products_query(db)
+    if is_visible is None:
+        query = _active_products_query(db)
+    elif is_visible == -1:
+        query = db.query(Product)
+    else:
+        query = db.query(Product).filter(Product.is_visible == is_visible)
+
     if search and search.strip():
-        query = query.filter(Product.name.ilike(f"%{search.strip()}%"))
+        s = search.strip()
+        from sqlalchemy import or_
+        query = query.filter(or_(Product.name.ilike(f"%{s}%"), Product.sku.ilike(f"%{s}%")))
     if category_ids and category_ids.strip():
         parsed_ids = [int(x.strip()) for x in category_ids.split(",") if x.strip().isdigit()]
         if parsed_ids:

@@ -203,7 +203,7 @@ def update_product(
     target_price = data.price if data.price is not None else product.price
     target_promo = (
         data.promotional_price
-        if data.promotional_price is not None
+        if "promotional_price" in data.model_fields_set
         else product.promotional_price
     )
 
@@ -213,7 +213,7 @@ def update_product(
             detail="Giá gốc sản phẩm phải lớn hơn 0",
         )
 
-    if data.promotional_price is not None and data.promotional_price < 0:
+    if target_promo is not None and target_promo < 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Giá khuyến mãi không được nhỏ hơn 0",
@@ -228,7 +228,7 @@ def update_product(
 
     if data.price is not None:
         product.price = data.price
-    if data.promotional_price is not None:
+    if "promotional_price" in data.model_fields_set:
         product.promotional_price = data.promotional_price
 
     # 5. Cập nhật các trường thông tin khác

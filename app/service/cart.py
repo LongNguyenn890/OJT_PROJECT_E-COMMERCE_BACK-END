@@ -99,11 +99,16 @@ def add_item_to_cart(db: Session, user_id: int, product_id: int, quantity: int =
     if cart_item:
         cart_item.quantity = new_total_qty
     else:
+        effective_price = (
+            int(product.promotional_price)
+            if product.promotional_price is not None and product.promotional_price >= 0 and product.promotional_price < product.price
+            else int(product.price)
+        )
         cart_item = CartItem(
             cart_id=cart.id,
             product_id=product.id,
             quantity=quantity,
-            price_at_add=int(product.price),
+            price_at_add=effective_price,
         )
         db.add(cart_item)
 

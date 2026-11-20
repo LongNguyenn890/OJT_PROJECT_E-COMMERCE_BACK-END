@@ -24,7 +24,15 @@ class CartItem(Base):
 
     @property
     def product_price(self) -> int:
-        return int(self.product.price) if self.product and self.product.price is not None else 0
+        if not self.product:
+            return 0
+        if (
+            self.product.promotional_price is not None
+            and self.product.promotional_price >= 0
+            and (self.product.price is None or self.product.promotional_price < self.product.price)
+        ):
+            return int(self.product.promotional_price)
+        return int(self.product.price) if self.product.price is not None else 0
 
     @property
     def stock_quantity(self) -> int:
@@ -49,7 +57,7 @@ class CartItem(Base):
 
     @property
     def price_changed(self) -> bool:
-        return self.price_at_add != 0 and int(self.price_at_add) != self.product_price
+        return False
 
     @property
     def out_of_stock(self) -> bool:
@@ -66,11 +74,5 @@ class CartItem(Base):
             warnings.append("Sản phẩm hiện đã hết hàng")
         elif self.quantity > self.stock_quantity:
             warnings.append(f"Số lượng trong giỏ ({self.quantity}) vượt quá tồn kho hiện có ({self.stock_quantity})")
-        
-        if self.price_changed:
-            if self.product_price > self.price_at_add:
-                warnings.append(f"Giá sản phẩm đã tăng từ {self.price_at_add:,}đ lên {self.product_price:,}đ")
-            else:
-                warnings.append(f"Giá sản phẩm đã giảm từ {self.price_at_add:,}đ xuống {self.product_price:,}đ")
 
         return "; ".join(warnings) if warnings else None

@@ -52,7 +52,7 @@ class ProductResponse(ProductBase):
 
 
 class PublicProductResponse(BaseModel):
-    """Thông tin sản phẩm dùng cho API danh mục công khai."""
+    """Thông tin sản phẩm dùng cho API danh mục công khai và quản trị."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -65,6 +65,9 @@ class PublicProductResponse(BaseModel):
     promotional_price: Decimal | None = None
     stock_quantity: int
     in_stock: bool
+    is_visible: int = 1
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     category: CategoryResponse | None = None
     product_images: list[ProductImageResponse] = []
 
