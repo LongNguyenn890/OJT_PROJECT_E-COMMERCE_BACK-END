@@ -12,6 +12,7 @@ class OrderCreate(BaseModel):
     note: str | None = Field(None, max_length=500, description="Ghi chú đơn hàng (nếu có)")
     payment_method: PaymentMethod = Field(default=PaymentMethod.COD, description="Phương thức thanh toán: COD hoặc chuyển khoản")
     selected_product_ids: list[int] | None = Field(None, description="Danh sách product_id được tích chọn mua. Nếu để trống sẽ đặt toàn bộ giỏ.")
+    voucher_code: str | None = Field(None, max_length=50, description="Mã voucher giảm giá áp dụng (nếu có)")
 
 
 # Dữ liệu cập nhật trạng thái đơn hàng (FR-026)

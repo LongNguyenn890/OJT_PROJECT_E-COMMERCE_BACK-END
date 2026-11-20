@@ -103,7 +103,32 @@ def create_order(
     )
     # Phí ship: Miễn phí từ 500.000đ, dưới 500.000đ là 30.000đ
     shipping_fee = 0 if subtotal_amount >= 500_000 else 30_000
-    total_amount = subtotal_amount + shipping_fee
+
+    # 3.1 Xử lý Voucher giảm giá nếu khách áp dụng mã (Chỉ áp dụng voucher do User đổi điểm sở hữu)
+    discount_amount = 0
+    voucher_applied_code = None
+    applied_voucher_obj = None
+    if getattr(data, "voucher_code", None):
+        vcode = str(data.voucher_code).strip().upper()
+        # Kiểm tra trong kho voucher của User (phải đổi bằng điểm thưởng mới có)
+        from app.models.voucher import Voucher
+        voucher_db = db.scalar(
+            select(Voucher).where(
+                Voucher.code == vcode,
+                Voucher.user_id == user_id,
+                Voucher.is_used == 0,
+            )
+        )
+        if voucher_db and subtotal_amount >= int(voucher_db.min_order_value or 0):
+            discount_amount = int(voucher_db.discount_amount)
+            voucher_applied_code = vcode
+            applied_voucher_obj = voucher_db
+
+    total_amount = max(0, subtotal_amount + shipping_fee - discount_amount)
+
+    order_note = data.note or ""
+    if voucher_applied_code and discount_amount > 0:
+        order_note = f"{order_note} [Voucher {voucher_applied_code}: -{discount_amount:,}đ]".strip()
 
     # 4. Thực hiện toàn bộ quy trình trong TRANSACTION CSDL
     try:
@@ -118,7 +143,7 @@ def create_order(
             receiver_name=data.receiver_name,
             receiver_phone=data.receiver_phone,
             shipping_address=data.shipping_address,
-            note=data.note,
+            note=order_note if order_note else None,
             payment_method=data.payment_method,
             subtotal_amount=subtotal_amount,
             shipping_fee=shipping_fee,
@@ -127,6 +152,10 @@ def create_order(
         )
         db.add(order)
         db.flush()  # Sinh order.id để liên kết các bảng phụ thuộc
+
+        # Đánh dấu voucher của user đã sử dụng (nếu là voucher cá nhân)
+        if applied_voucher_obj:
+            applied_voucher_obj.is_used = 1
 
         # 4.3. Trừ tồn kho bằng hàm decrease_stock của module Kho & tạo OrderItem cho các món được chọn
         for item in items_to_order:

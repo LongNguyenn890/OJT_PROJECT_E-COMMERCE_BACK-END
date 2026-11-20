@@ -2,13 +2,18 @@
 
 Muốn thêm cấu hình mới: thêm 1 dòng vào class Settings + thêm vào .env.example.
 """
+import sys
+from pathlib import Path
 from urllib.parse import quote_plus
 
-from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# Tự động nạp site-packages từ .venv nếu người dùng chạy từ môi trường Python ngoài
+_venv_site_packages = BASE_DIR / ".venv" / "Lib" / "site-packages"
+if _venv_site_packages.exists() and str(_venv_site_packages) not in sys.path:
+    sys.path.insert(0, str(_venv_site_packages))
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", env_file_encoding="utf-8")

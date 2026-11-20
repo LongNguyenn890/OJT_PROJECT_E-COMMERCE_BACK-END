@@ -192,6 +192,32 @@ def cancel_order(db: Session, order: Order, user_id: int, cancel_reason: str) ->
                 note=f"Hoàn tồn kho do hủy đơn {order.order_code}",
             )
             db.add(stock_log)
+
+    # 3.1 Hoàn lại voucher nếu đơn hàng có áp dụng voucher
+    if order.note and "[Voucher " in order.note and order.user_id:
+        import re
+        match = re.search(r"\[Voucher\s+([A-Za-z0-9_-]+):", order.note)
+        if match:
+            vcode = match.group(1).strip().upper()
+            from app.models.voucher import Voucher
+            voucher = db.query(Voucher).filter(
+                Voucher.code == vcode,
+                Voucher.user_id == order.user_id
+            ).first()
+            if voucher and voucher.is_used == 1:
+                voucher.is_used = 0
+
+    # 3.2 Thu hồi điểm thưởng nếu đơn hàng đã từng được tích điểm khi Admin duyệt
+    if old_status in ["CONFIRMED", "SHIPPING", "COMPLETED", "DELIVERED"]:
+        total_amount = int(order.total_amount or 0)
+        if total_amount > 500_000 and order.user_id:
+            points_earned = int((total_amount - 500_000) // 10_000)
+            if points_earned > 0:
+                from app.models.user import User
+                customer = db.query(User).filter(User.id == order.user_id).first()
+                if customer and customer.reward_points:
+                    customer.reward_points = max(0, customer.reward_points - points_earned)
+
     # 4. Lưu toàn bộ thay đổi trong 1 giao dịch
     db.commit()
     db.refresh(order)
@@ -262,6 +288,20 @@ def update_order_status_admin(
     # 2. Nếu hoàn thành thì lưu thời điểm hoàn thành
     if new_status_code in ["COMPLETED", "DELIVERED"]:
         order.completed_at = datetime.now()
+
+    # 2.1 Tích lũy điểm thưởng khi Admin duyệt đơn (PENDING -> CONFIRMED / SHIPPING / COMPLETED)
+    # Quy tắc: Đơn hàng chi tiêu trên 500k, mỗi 10k vượt 500k nhận 1 điểm (Ví dụ: 490k -> 0đ, 510k -> 1đ)
+    if old_status_code == "PENDING" and new_status_code in ["CONFIRMED", "SHIPPING", "COMPLETED"]:
+        total_amount = int(order.total_amount or 0)
+        if total_amount > 500_000 and order.user_id:
+            points_earned = int((total_amount - 500_000) // 10_000)
+            if points_earned > 0:
+                from app.models.user import User
+                customer = db.query(User).filter(User.id == order.user_id).first()
+                if customer:
+                    customer.reward_points = (customer.reward_points or 0) + points_earned
+                    points_text = f" (+{points_earned} điểm thưởng)"
+                    note = f"{(note or 'Admin duyệt đơn')}{points_text}"
 
     # 3. Ghi lại 1 dòng lịch sử chuyển đổi trạng thái (chuẩn hóa enum tiếng Anh trong OrderStatusHistory)
     history = OrderStatusHistory(
