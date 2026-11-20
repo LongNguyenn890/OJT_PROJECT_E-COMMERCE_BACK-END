@@ -50,10 +50,11 @@ def get_current_user(
             detail="Không tìm thấy thông tin tài khoản",
         )
 
-    if user.status == Status.LOCK or user.status == "LOCK":
+    st_val = str(getattr(user.status, "value", user.status)).upper()
+    if user.status in (Status.LOCK, "LOCKED", "LOCK") or st_val in ("LOCKED", "LOCK"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tài khoản của bạn đã bị khóa",
+            detail="Tài khoản của bạn đã bị khóa, vui lòng liên hệ quản trị viên",
         )
 
     return user

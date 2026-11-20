@@ -25,13 +25,14 @@ from app.schemas import (
 )
 
 from app.service import order_status_histories as crud_order_histories
+from app.core.ws import dashboard_ws_manager
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
 VALID_TRANSITIONS = {
     "PENDING": ["CONFIRMED"],
     "CONFIRMED": ["SHIPPING"],
-    "SHIPPING": ["COMPLETED"],
+    "SHIPPING": ["COMPLETED", "DELIVERED"],
 }
 
 
@@ -86,13 +87,13 @@ def read_all_orders(
     to_date: Optional[date] = Query(None, description="Đến ngày tạo đơn (YYYY-MM-DD)"),
     keyword: Optional[str] = Query(None, description="Tìm theo mã đơn hoặc SĐT người nhận"),
     page: int = Query(1, ge=1, description="Số trang hiện tại (bắt đầu từ 1)"),
-    page_size: int = Query(10, ge=1, le=50, description="Số đơn hàng trên mỗi trang (tối đa 50)"),
+    page_size: int = Query(10, ge=1, le=500, description="Số đơn hàng trên mỗi trang (tối đa 500)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Admin hoặc Staff xem danh sách tất cả đơn hàng kèm phân trang và tìm kiếm/lọc."""
     # Kiểm tra quyền: Chỉ tài khoản Admin hoặc Staff mới được xem toàn bộ đơn hàng
-    user_role = str(getattr(current_user, "role", "")).upper()
+    user_role = (current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)).upper()
     if user_role not in ["ADMIN", "STAFF"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -321,14 +322,14 @@ def read_order_detail(
         "- **Lưu ý**: Để hủy đơn hàng và hoàn kho, vui lòng dùng API `POST /orders/{id}/cancel`."
     ),
 )
-def update_order_status(
+async def update_order_status(
     id: int,
     request: UpdateOrderStatusRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Admin cập nhật trạng thái đơn hàng theo đúng luồng (FR-026)."""
-    user_role = str(getattr(current_user, "role", "")).upper()
+    user_role = (current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)).upper()
     if user_role not in ["ADMIN", "STAFF"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -340,8 +341,8 @@ def update_order_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Đơn hàng không tồn tại",
         )
-    current_status = str(order.status.value if hasattr(order.status, "value") else order.status).upper()
-    new_status = request.status.upper()
+    current_status = normalize_status_code(order.status)
+    new_status = normalize_status_code(request.status)
     # 1. Chặn nếu cố chuyển sang CANCELLED (phải dùng API cancel để hoàn kho)
     if new_status == "CANCELLED":
         raise HTTPException(
@@ -363,12 +364,24 @@ def update_order_status(
         user_id=current_user.id,
         note=request.note,
     )
+    # 4. Phát tín hiệu cập nhật thời gian thực qua WebSocket
+    try:
+        await dashboard_ws_manager.broadcast({
+            "type": "ORDER_UPDATED",
+            "order_id": updated_order.id,
+            "order_code": updated_order.order_code,
+            "old_status": current_status,
+            "new_status": normalize_status_code(updated_order.status),
+        })
+    except Exception:
+        pass
+
     return {
         "message": "Cập nhật trạng thái đơn hàng thành công",
         "order_id": updated_order.id,
         "order_code": updated_order.order_code,
         "old_status": current_status,
-        "new_status": str(updated_order.status.value if hasattr(updated_order.status, "value") else updated_order.status),
+        "new_status": normalize_status_code(updated_order.status),
     }
 
 
@@ -382,7 +395,7 @@ def update_order_status(
         "- Đơn hàng hủy sẽ tự động hoàn số lượng sản phẩm lại vào tồn kho."
     ),
 )
-def cancel_order_endpoint(
+async def cancel_order_endpoint(
     id: int,
     request: CancelOrderRequest,
     db: Session = Depends(get_db),
@@ -396,7 +409,7 @@ def cancel_order_endpoint(
             detail="Đơn hàng không tồn tại",
         )
     # Lấy role của người dùng hiện tại (chuyển về dạng string in hoa)
-    user_role = str(getattr(current_user, "role", "")).upper()
+    user_role = (current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)).upper()
     current_status = normalize_status_code(order.status)
     # 1. Chặn nếu đơn đã ở trạng thái kết thúc hoặc đang giao
     if current_status == "CANCELLED":
@@ -437,6 +450,18 @@ def cancel_order_endpoint(
         user_id=current_user.id,
         cancel_reason=request.cancel_reason,
     )
+    # 4. Phát tín hiệu cập nhật thời gian thực qua WebSocket
+    try:
+        await dashboard_ws_manager.broadcast({
+            "type": "ORDER_UPDATED",
+            "order_id": cancelled_order.id,
+            "order_code": cancelled_order.order_code,
+            "old_status": current_status,
+            "new_status": "CANCELLED",
+        })
+    except Exception:
+        pass
+
     return {
         "message": "Hủy đơn hàng thành công",
         "order_id": cancelled_order.id,

@@ -160,6 +160,22 @@ app.include_router(customers.router, prefix="/api")
 app.include_router(inventory.router, prefix="/api")
 app.include_router(health.router, prefix="/api")
 
+from fastapi import WebSocket, WebSocketDisconnect
+from app.core.ws import dashboard_ws_manager
+
+@app.websocket("/api/ws/dashboard")
+async def ws_dashboard_endpoint(websocket: WebSocket):
+    await dashboard_ws_manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        dashboard_ws_manager.disconnect(websocket)
+    except Exception:
+        dashboard_ws_manager.disconnect(websocket)
+
 
 @app.get("/")
 def root():

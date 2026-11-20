@@ -26,6 +26,7 @@ from app.schemas.customer import (
 )
 from app.schemas.user import (
     UserCreate,
+    StaffCreate,
     TokenResponse,
     UserLogin,
     UserResponse,
@@ -107,6 +108,7 @@ from app.schemas.stock_log import (
 
 __all__ = [
     "UserCreate",
+    "StaffCreate",
     "TokenResponse",
     "UserLogin",
     "UserResponse",

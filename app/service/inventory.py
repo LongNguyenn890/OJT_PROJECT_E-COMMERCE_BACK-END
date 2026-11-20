@@ -270,7 +270,7 @@ def get_low_stock_alerts(
     """
     products = (
         db.query(Product)
-        .options(joinedload(Product.category))
+        .options(joinedload(Product.category), joinedload(Product.product_images))
         .filter(Product.stock_quantity <= threshold)
         .order_by(Product.stock_quantity.asc())
         .all()
@@ -278,10 +278,21 @@ def get_low_stock_alerts(
 
     items = []
     for p in products:
+        img_url = None
+        if p.product_images:
+            for img in p.product_images:
+                if img.is_primary:
+                    img_url = img.image_url
+                    break
+            if not img_url and p.product_images:
+                img_url = p.product_images[0].image_url
+
         items.append({
             "product_id": p.id,
             "product_name": p.name,
             "category_name": p.category.name if p.category else None,
+            "sku": p.sku or f"SP-{p.id}",
+            "image_url": img_url,
             "current_stock": p.stock_quantity,
             "threshold": threshold,
             "is_out_of_stock": p.stock_quantity == 0,

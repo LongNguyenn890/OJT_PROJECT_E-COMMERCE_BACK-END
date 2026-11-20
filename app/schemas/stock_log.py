@@ -155,6 +155,8 @@ class LowStockProductItem(BaseModel):
     product_id: int
     product_name: str
     category_name: str | None = None
+    sku: str | None = None
+    image_url: str | None = None
     current_stock: int
     threshold: int = Field(default=DEFAULT_LOW_STOCK_THRESHOLD, description="Ngưỡng cảnh báo áp dụng")
     is_out_of_stock: bool = Field(default=False, description="True nếu tồn kho = 0")

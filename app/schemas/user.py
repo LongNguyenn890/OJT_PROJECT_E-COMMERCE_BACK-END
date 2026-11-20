@@ -7,11 +7,25 @@ from app.schemas.address import AddressResponse
 
 
 class UserCreate(BaseModel):
-    full_name: str = Field(..., min_length=5, max_length=100, examples=["Nguyễn Văn A"])
+    full_name: str = Field(..., min_length=2, max_length=100, examples=["Nguyễn Văn A"])
     email: EmailStr = Field(..., examples=["nguyenvana@gmail.com"])
-    phone: str = Field(..., min_length=10, max_length=15, examples=["0912345678"])
+    phone: str = Field(..., min_length=9, max_length=15, examples=["0912345678"])
     password: str = Field(..., min_length=6, examples=["123456"])
 
+
+class StaffCreate(BaseModel):
+    full_name: str = Field(..., min_length=2, max_length=100, description="Họ và tên nhân viên")
+    email: EmailStr = Field(..., description="Email nhân viên")
+    phone: str = Field(..., min_length=9, max_length=15, description="Số điện thoại")
+    password: str = Field(..., min_length=6, description="Mật khẩu khởi tạo (tối thiểu 6 ký tự)")
+    role: Optional[Role] = Field(default=Role.STAFF, description="Vai trò: STAFF hoặc ADMIN")
+
+
+class StaffUpdate(BaseModel):
+    full_name: Optional[str] = Field(default=None, min_length=2, max_length=100, description="Họ và tên nhân viên")
+    phone: Optional[str] = Field(default=None, min_length=9, max_length=15, description="Số điện thoại")
+    password: Optional[str] = Field(default=None, min_length=6, description="Mật khẩu mới (bỏ trống nếu không đổi)")
+    role: Optional[Role] = Field(default=None, description="Vai trò: STAFF hoặc ADMIN")
 
 
 class UserLogin(BaseModel):
@@ -34,7 +48,7 @@ class UserUpdate(BaseModel):
 
 
 class UserStatusUpdate(BaseModel):
-    status: Status = Field(..., description="Trạng thái tài khoản: ACTIVE hoặc LOCK")
+    status: str = Field(..., description="Trạng thái tài khoản: ACTIVE hoặc LOCKED / LOCK")
 
 
 class AvatarResponse(BaseModel):

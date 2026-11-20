@@ -241,18 +241,34 @@ def update_order_status_admin(
     note: Optional[str] = None,
 ) -> Order:
     """Cập nhật trạng thái đơn hàng và ghi lại lịch sử (FR-026)."""
-    old_status = str(order.status.value if hasattr(order.status, "value") else order.status)
-    # Cập nhật trạng thái mới
-    order.status = new_status
-    # Nếu hoàn thành thì lưu thời điểm hoàn thành
-    if new_status == "COMPLETED":
+    old_status_code = _normalize_history_code(order.status)
+    new_status_code = _normalize_history_code(new_status)
+
+    # 1. Cập nhật Order.status (chuẩn hóa enum tiếng Việt trong Order model)
+    order_enum_map = {
+        "PENDING": OrderStatus.PENDING,
+        "CONFIRMED": OrderStatus.CONFIRMED,
+        "SHIPPING": OrderStatus.SHIPPING,
+        "COMPLETED": OrderStatus.COMPLETED,
+        "DELIVERED": OrderStatus.COMPLETED,
+        "CANCELLED": OrderStatus.CANCELLED,
+    }
+    target_status = order_enum_map.get(new_status_code, OrderStatus.CONFIRMED)
+    try:
+        order.status = target_status
+    except Exception:
+        order.status = new_status
+
+    # 2. Nếu hoàn thành thì lưu thời điểm hoàn thành
+    if new_status_code in ["COMPLETED", "DELIVERED"]:
         order.completed_at = datetime.now()
-    # Ghi lại 1 dòng lịch sử chuyển đổi trạng thái
+
+    # 3. Ghi lại 1 dòng lịch sử chuyển đổi trạng thái (chuẩn hóa enum tiếng Anh trong OrderStatusHistory)
     history = OrderStatusHistory(
         order_id=order.id,
         changed_by=user_id,
-        old_status=old_status,
-        new_status=new_status,
+        old_status=old_status_code,
+        new_status=new_status_code,
         note=note,
     )
     db.add(history)

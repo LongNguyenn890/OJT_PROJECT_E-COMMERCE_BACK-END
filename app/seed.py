@@ -1355,233 +1355,452 @@ def seed_database(db: Session | None = None):
         now = datetime.now()
 
         sample_orders_data = [
-            # Đơn 1: PENDING (Chờ xác nhận)
+            # ==================================================================
+            # KHÁCH HÀNG 1: customer1@example.com (Nguyễn Văn An) - 5 đơn hàng
+            # ==================================================================
+            # Đơn 1: PENDING (Đơn mới đặt cần duyệt)
             {
                 "customer": user_map.get("customer1@example.com"),
-                "order_code": "ORD20261112001",
+                "order_code": "ORD20261119001",
                 "payment_method": PaymentMethod.COD,
                 "status": OrderModelStatus.PENDING,
                 "cancel_reason": None,
-                "created_at": now - timedelta(hours=2),
+                "created_at": now - timedelta(minutes=30),
                 "completed_at": None,
-                "note": "Giao hàng vào giờ hành chính",
+                "note": "Đơn hàng mới đặt: Giao hàng vào giờ hành chính, gọi trước khi đến",
                 "items": [
-                    {"product": product_list[0], "quantity": 1},   # iPhone 15 Pro Max
-                    {"product": product_list[29], "quantity": 1},  # Củ Sạc Anker Prime
+                    {"product": product_list[42], "quantity": 1},  # Nồi Cơm Điện Cuckoo 1.8L
+                    {"product": product_list[45], "quantity": 1},  # Bàn Là Hơi Nước Đứng Philips
                 ],
                 "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt đơn thành công", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(hours=2)},
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt đơn hàng COD thành công", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(minutes=30)},
                 ],
             },
-            # Đơn 2: CONFIRMED (Đã xác nhận)
+            # Đơn 2: CONFIRMED (Đã xác nhận thanh toán chuyển khoản)
             {
-                "customer": user_map.get("customer2@example.com"),
-                "order_code": "ORD20261112002",
+                "customer": user_map.get("customer1@example.com"),
+                "order_code": "ORD20261119002",
                 "payment_method": PaymentMethod.BANK_TRANSFER,
                 "status": OrderModelStatus.CONFIRMED,
                 "cancel_reason": None,
-                "created_at": now - timedelta(hours=5),
+                "created_at": now - timedelta(hours=4),
                 "completed_at": None,
-                "note": "Đã chuyển khoản qua Vietcombank",
+                "note": "Đã chuyển khoản qua Vietcombank, kiểm tra sao kê giúp mình",
                 "items": [
-                    {"product": product_list[7], "quantity": 1},   # MacBook Pro 14 M3 Pro
+                    {"product": product_list[0], "quantity": 1},   # iPhone 15 Pro Max 256GB
+                    {"product": product_list[29], "quantity": 1},  # Củ Sạc Nhanh Anker Prime 67W
+                    {"product": product_list[31], "quantity": 2},  # Cáp Sạc Type-C 100W
                 ],
                 "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt đơn qua chuyển khoản", "by": user_map.get("customer2@example.com").id, "time": now - timedelta(hours=5)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên đã kiểm tra sao kê ngân hàng và xác nhận đơn", "by": staff_id, "time": now - timedelta(hours=4, minutes=30)},
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt đơn chuyển khoản", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(hours=4)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên kế toán xác nhận nhận tiền và duyệt đơn", "by": staff_id, "time": now - timedelta(hours=3)},
                 ],
             },
-            # Đơn 3: SHIPPING (Đang giao hàng)
+            # Đơn 3: SHIPPING (Đang vận chuyển)
             {
-                "customer": user_map.get("customer3@example.com"),
-                "order_code": "ORD20261112003",
+                "customer": user_map.get("customer1@example.com"),
+                "order_code": "ORD20261118003",
                 "payment_method": PaymentMethod.COD,
                 "status": OrderModelStatus.SHIPPING,
                 "cancel_reason": None,
                 "created_at": now - timedelta(days=1),
                 "completed_at": None,
-                "note": "Gọi trước khi giao 15 phút",
+                "note": "Giao về địa chỉ nhà riêng Dịch Vọng",
                 "items": [
-                    {"product": product_list[14], "quantity": 1},  # Sony WH-1000XM5
-                    {"product": product_list[28], "quantity": 1},  # Chuột Logitech MX Master 3S
+                    {"product": product_list[14], "quantity": 1},  # Tai nghe Sony WH-1000XM5
+                    {"product": product_list[28], "quantity": 1},  # Chuột Không Dây Logitech MX Master 3S
                 ],
                 "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt hàng COD", "by": user_map.get("customer3@example.com").id, "time": now - timedelta(days=1)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Đơn hàng đã được xác nhận", "by": staff_id, "time": now - timedelta(hours=20)},
-                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đã đóng gói và bàn giao cho bưu tá giao hàng", "by": staff_id, "time": now - timedelta(hours=10)},
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách đặt đơn COD", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=1)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Kho xuất hàng đóng gói", "by": staff_id, "time": now - timedelta(hours=20)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đã bàn giao bưu tá ShopEase Express đang đi phát", "by": staff_id, "time": now - timedelta(hours=8)},
                 ],
             },
-            # Đơn 4: COMPLETED (Đã hoàn thành)
+            # Đơn 4: COMPLETED (Hoàn thành)
             {
-                "customer": user_map.get("customer4@example.com"),
-                "order_code": "ORD20261110004",
+                "customer": user_map.get("customer1@example.com"),
+                "order_code": "ORD20261115004",
                 "payment_method": PaymentMethod.BANK_TRANSFER,
                 "status": OrderModelStatus.COMPLETED,
                 "cancel_reason": None,
-                "created_at": now - timedelta(days=3),
-                "completed_at": now - timedelta(days=1),
-                "note": None,
+                "created_at": now - timedelta(days=4),
+                "completed_at": now - timedelta(days=2),
+                "note": "Nhận hàng nguyên vẹn, máy rất tốt",
                 "items": [
-                    {"product": product_list[22], "quantity": 1},  # Apple Watch Series 9
+                    {"product": product_list[7], "quantity": 1},   # MacBook Pro 14 M3 Pro
                 ],
                 "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng thành công", "by": user_map.get("customer4@example.com").id, "time": now - timedelta(days=3)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên xác nhận đơn", "by": staff_id, "time": now - timedelta(days=2, hours=20)},
-                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đơn hàng đang trên đường giao tới người nhận", "by": staff_id, "time": now - timedelta(days=2)},
-                    {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Giao hàng thành công, khách đã nhận hàng nguyên vẹn", "by": staff_id, "time": now - timedelta(days=1)},
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng thành công", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=4)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Xác nhận thanh toán và xuất hóa đơn VAT", "by": staff_id, "time": now - timedelta(days=3, hours=18)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Vận chuyển hỏa tốc nội thành", "by": staff_id, "time": now - timedelta(days=3)},
+                    {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Khách hàng đã nhận và ký nhận hàng thành công", "by": staff_id, "time": now - timedelta(days=2)},
                 ],
             },
             # Đơn 5: CANCELLED (Đã hủy)
             {
-                "customer": user_map.get("customer5@example.com"),
-                "order_code": "ORD20261111005",
+                "customer": user_map.get("customer1@example.com"),
+                "order_code": "ORD20261116005",
                 "payment_method": PaymentMethod.COD,
                 "status": OrderModelStatus.CANCELLED,
-                "cancel_reason": "Khách hàng đổi ý muốn đổi sang sản phẩm khác",
-                "created_at": now - timedelta(days=1, hours=4),
+                "cancel_reason": "Tôi đặt nhầm mẫu, muốn đổi sang dòng robot hút bụi khác",
+                "created_at": now - timedelta(days=3),
                 "completed_at": None,
                 "note": None,
                 "items": [
                     {"product": product_list[34], "quantity": 1},  # Robot Hút Bụi Dreame L20 Ultra
                 ],
                 "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng COD", "by": user_map.get("customer5@example.com").id, "time": now - timedelta(days=1, hours=4)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CANCELLED, "note": "Khách gọi hotline yêu cầu hủy đơn do đổi ý", "by": staff_id, "time": now - timedelta(days=1, hours=2)},
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=3)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CANCELLED, "note": "Khách tự hủy đơn trên hệ thống khi đơn đang chờ duyệt", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=2, hours=20)},
                 ],
             },
-            # Đơn 6: Customer 1 - CONFIRMED (Đã xác nhận)
+
+            # ==================================================================
+            # KHÁCH HÀNG 2: customer2@example.com (Trần Thị Bình) - 5 đơn hàng
+            # ==================================================================
+            # Đơn 6: PENDING (Đơn mới đặt cần duyệt)
             {
-                "customer": user_map.get("customer1@example.com"),
-                "order_code": "ORD20261112006",
-                "payment_method": PaymentMethod.BANK_TRANSFER,
-                "status": OrderModelStatus.CONFIRMED,
-                "cancel_reason": None,
-                "created_at": now - timedelta(hours=6),
-                "completed_at": None,
-                "note": "Đã thanh toán trước qua chuyển khoản ngân hàng",
-                "items": [
-                    {"product": product_list[7], "quantity": 1},   # MacBook Pro 14 M3 Pro
-                ],
-                "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn hàng thành công", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(hours=6)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên đối soát giao dịch và duyệt đơn", "by": staff_id, "time": now - timedelta(hours=5)},
-                ],
-            },
-            # Đơn 7: Customer 1 - SHIPPING (Đang giao hàng)
-            {
-                "customer": user_map.get("customer1@example.com"),
-                "order_code": "ORD20261111007",
-                "payment_method": PaymentMethod.COD,
-                "status": OrderModelStatus.SHIPPING,
-                "cancel_reason": None,
-                "created_at": now - timedelta(days=1, hours=3),
-                "completed_at": None,
-                "note": "Giao sau 17h chiều hoặc gọi trước",
-                "items": [
-                    {"product": product_list[14], "quantity": 1},  # Sony WH-1000XM5
-                    {"product": product_list[28], "quantity": 1},  # Chuột Logitech MX Master 3S
-                ],
-                "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn hàng COD", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=1, hours=3)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Đơn hàng đã được xác nhận đóng gói", "by": staff_id, "time": now - timedelta(days=1, hours=1)},
-                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Bàn giao cho đơn vị vận chuyển ShopEase Express", "by": staff_id, "time": now - timedelta(hours=8)},
-                ],
-            },
-            # Đơn 8: Customer 1 - COMPLETED (Hoàn thành)
-            {
-                "customer": user_map.get("customer1@example.com"),
-                "order_code": "ORD20261108008",
-                "payment_method": PaymentMethod.COD,
-                "status": OrderModelStatus.COMPLETED,
-                "cancel_reason": None,
-                "created_at": now - timedelta(days=4),
-                "completed_at": now - timedelta(days=2),
-                "note": "Khách nhận hàng tại địa chỉ công ty",
-                "items": [
-                    {"product": product_list[22], "quantity": 1},  # Apple Watch Series 9
-                    {"product": product_list[48], "quantity": 2},  # Áo Polo thể thao
-                ],
-                "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng thành công", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=4)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Duyệt đơn và chuyển kho xuất", "by": staff_id, "time": now - timedelta(days=3, hours=18)},
-                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Bưu tá bắt đầu phát hàng", "by": staff_id, "time": now - timedelta(days=3)},
-                    {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Giao hàng thành công và thu COD đầy đủ", "by": staff_id, "time": now - timedelta(days=2)},
-                ],
-            },
-            # Đơn 9: Customer 1 - CANCELLED (Đã hủy)
-            {
-                "customer": user_map.get("customer1@example.com"),
-                "order_code": "ORD20261109009",
-                "payment_method": PaymentMethod.COD,
-                "status": OrderModelStatus.CANCELLED,
-                "cancel_reason": "Tôi đặt nhầm mẫu sản phẩm, muốn đổi sang màu khác",
-                "created_at": now - timedelta(days=2, hours=8),
-                "completed_at": None,
-                "note": None,
-                "items": [
-                    {"product": product_list[34], "quantity": 1},  # Robot Hút Bụi
-                ],
-                "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=2, hours=8)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CANCELLED, "note": "Khách hàng tự hủy đơn khi đơn đang Chờ xác nhận", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(days=2, hours=6)},
-                ],
-            },
-            # Đơn 10: Admin testing - PENDING (Chờ xác nhận)
-            {
-                "customer": user_map.get("admin@example.com"),
-                "order_code": "ORD20261112010",
+                "customer": user_map.get("customer2@example.com"),
+                "order_code": "ORD20261119006",
                 "payment_method": PaymentMethod.COD,
                 "status": OrderModelStatus.PENDING,
                 "cancel_reason": None,
                 "created_at": now - timedelta(minutes=45),
                 "completed_at": None,
-                "note": "Đơn hàng kiểm thử tài khoản Admin",
+                "note": "Đơn hàng mới đặt: Kiểm tra đúng size giày 41 trước khi gửi",
                 "items": [
-                    {"product": product_list[1], "quantity": 1},   # Samsung Galaxy S24 Ultra
-                    {"product": product_list[15], "quantity": 1},  # AirPods Pro 2
+                    {"product": product_list[47], "quantity": 1},  # Áo Khoác Bomber Da Thật
+                    {"product": product_list[48], "quantity": 1},  # Giày Nike Air Jordan 1
                 ],
                 "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khởi tạo đơn hàng kiểm thử", "by": user_map.get("admin@example.com").id, "time": now - timedelta(minutes=45)},
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt đơn hàng thời trang", "by": user_map.get("customer2@example.com").id, "time": now - timedelta(minutes=45)},
                 ],
             },
-            # Đơn 11: Admin testing - SHIPPING (Đang giao hàng)
+            # Đơn 7: CONFIRMED (Đã xác nhận đơn hàng)
             {
-                "customer": user_map.get("admin@example.com"),
-                "order_code": "ORD20261112011",
+                "customer": user_map.get("customer2@example.com"),
+                "order_code": "ORD20261118007",
                 "payment_method": PaymentMethod.BANK_TRANSFER,
+                "status": OrderModelStatus.CONFIRMED,
+                "cancel_reason": None,
+                "created_at": now - timedelta(hours=10),
+                "completed_at": None,
+                "note": "Đã chuyển khoản Vietcombank, đóng gói kỹ giúp mình",
+                "items": [
+                    {"product": product_list[3], "quantity": 1},   # iPad Pro M4 11 inch Wi-Fi 256GB
+                    {"product": product_list[27], "quantity": 1},  # Bàn Phím Cơ Keychron K2 Pro
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn hàng online", "by": user_map.get("customer2@example.com").id, "time": now - timedelta(hours=10)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên xác nhận đơn hàng hợp lệ", "by": staff_id, "time": now - timedelta(hours=8)},
+                ],
+            },
+            # Đơn 8: SHIPPING (Đang giao hàng)
+            {
+                "customer": user_map.get("customer2@example.com"),
+                "order_code": "ORD20261117008",
+                "payment_method": PaymentMethod.COD,
                 "status": OrderModelStatus.SHIPPING,
+                "cancel_reason": None,
+                "created_at": now - timedelta(days=2),
+                "completed_at": None,
+                "note": "Giao hàng tại Bạch Đằng, Đà Nẵng",
+                "items": [
+                    {"product": product_list[57], "quantity": 1},  # Máy Sấy Tóc Dyson Supersonic
+                    {"product": product_list[56], "quantity": 1},  # Nước Hoa Nam Bleu de Chanel
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn COD", "by": user_map.get("customer2@example.com").id, "time": now - timedelta(days=2)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Đơn hàng được duyệt đóng gói", "by": staff_id, "time": now - timedelta(days=1, hours=18)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đang vận chuyển liên tỉnh tới Đà Nẵng", "by": staff_id, "time": now - timedelta(days=1)},
+                ],
+            },
+            # Đơn 9: COMPLETED (Đã nhận hàng thành công)
+            {
+                "customer": user_map.get("customer2@example.com"),
+                "order_code": "ORD20261112009",
+                "payment_method": PaymentMethod.BANK_TRANSFER,
+                "status": OrderModelStatus.COMPLETED,
+                "cancel_reason": None,
+                "created_at": now - timedelta(days=7),
+                "completed_at": now - timedelta(days=4),
+                "note": "Sản phẩm chính hãng rất ưng ý",
+                "items": [
+                    {"product": product_list[21], "quantity": 1},  # Apple Watch Ultra 2
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn hàng", "by": user_map.get("customer2@example.com").id, "time": now - timedelta(days=7)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Xác nhận thanh toán", "by": staff_id, "time": now - timedelta(days=6, hours=20)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Bắt đầu giao hàng", "by": staff_id, "time": now - timedelta(days=6)},
+                    {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Giao hàng thành công", "by": staff_id, "time": now - timedelta(days=4)},
+                ],
+            },
+            # Đơn 10: CANCELLED (Đã hủy)
+            {
+                "customer": user_map.get("customer2@example.com"),
+                "order_code": "ORD20261114010",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.CANCELLED,
+                "cancel_reason": "Khách hàng muốn thay đổi địa chỉ nhận hàng nên hủy đặt lại",
+                "created_at": now - timedelta(days=5),
+                "completed_at": None,
+                "note": None,
+                "items": [
+                    {"product": product_list[66], "quantity": 1},  # Màn Hình Samsung Odyssey OLED G9
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn", "by": user_map.get("customer2@example.com").id, "time": now - timedelta(days=5)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CANCELLED, "note": "Khách gọi hotline yêu cầu hủy để đổi địa chỉ", "by": staff_id, "time": now - timedelta(days=4, hours=22)},
+                ],
+            },
+
+            # ==================================================================
+            # KHÁCH HÀNG 3: customer3@example.com (Lê Hoàng Cường) - 4 đơn hàng
+            # ==================================================================
+            # Đơn 11: PENDING (Đơn mới đặt cần duyệt)
+            {
+                "customer": user_map.get("customer3@example.com"),
+                "order_code": "ORD20261119011",
+                "payment_method": PaymentMethod.BANK_TRANSFER,
+                "status": OrderModelStatus.PENDING,
+                "cancel_reason": None,
+                "created_at": now - timedelta(hours=1),
+                "completed_at": None,
+                "note": "Đơn hàng mới đặt: Linh kiện PC giá trị cao, vui lòng gọi điện xác nhận trước khi đóng thùng gỗ",
+                "items": [
+                    {"product": product_list[62], "quantity": 1},  # Card ASUS ROG Strix RTX 4080 Super
+                    {"product": product_list[67], "quantity": 1},  # Nguồn Corsair RM1000x 1000W
+                    {"product": product_list[63], "quantity": 1},  # SSD Samsung 990 Pro 2TB
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách đặt đơn hàng linh kiện PC", "by": user_map.get("customer3@example.com").id, "time": now - timedelta(hours=1)},
+                ],
+            },
+            # Đơn 12: CONFIRMED (Đã xác nhận đơn hàng)
+            {
+                "customer": user_map.get("customer3@example.com"),
+                "order_code": "ORD20261118012",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.CONFIRMED,
+                "cancel_reason": None,
+                "created_at": now - timedelta(hours=16),
+                "completed_at": None,
+                "note": "Giao hàng quận 1 TP.HCM",
+                "items": [
+                    {"product": product_list[1], "quantity": 1},   # Samsung Galaxy S24 Ultra 5G
+                    {"product": product_list[19], "quantity": 1},  # Sennheiser Momentum True Wireless 4
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn COD", "by": user_map.get("customer3@example.com").id, "time": now - timedelta(hours=16)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên gọi điện thoại xác nhận đơn thành công", "by": staff_id, "time": now - timedelta(hours=12)},
+                ],
+            },
+            # Đơn 13: SHIPPING (Đang giao hàng)
+            {
+                "customer": user_map.get("customer3@example.com"),
+                "order_code": "ORD20261117013",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.SHIPPING,
+                "cancel_reason": None,
+                "created_at": now - timedelta(days=2),
+                "completed_at": None,
+                "note": "Xe đạp giao nguyên thùng hay đã lắp ráp sẵn?",
+                "items": [
+                    {"product": product_list[68], "quantity": 1},  # Xe Đạp Thể Thao Giant ATX 830
+                    {"product": product_list[72], "quantity": 1},  # Bình Giữ Nhiệt Stanley 890ml
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách đặt đơn xe đạp thể thao", "by": user_map.get("customer3@example.com").id, "time": now - timedelta(days=2)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Đã ráp xe và kiểm tra kỹ thuật", "by": staff_id, "time": now - timedelta(days=1, hours=15)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đang vận chuyển bằng xe tải nội thành TP.HCM", "by": staff_id, "time": now - timedelta(hours=12)},
+                ],
+            },
+            # Đơn 14: COMPLETED (Hoàn thành)
+            {
+                "customer": user_map.get("customer3@example.com"),
+                "order_code": "ORD20261110014",
+                "payment_method": PaymentMethod.BANK_TRANSFER,
+                "status": OrderModelStatus.COMPLETED,
+                "cancel_reason": None,
+                "created_at": now - timedelta(days=9),
+                "completed_at": now - timedelta(days=6),
+                "note": "Giao hàng nhanh, máy đẹp",
+                "items": [
+                    {"product": product_list[9], "quantity": 1},   # Dell XPS 13 Plus 9320
+                    {"product": product_list[28], "quantity": 1},  # Chuột Logitech MX Master 3S
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng online", "by": user_map.get("customer3@example.com").id, "time": now - timedelta(days=9)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Duyệt đơn chuyển khoản", "by": staff_id, "time": now - timedelta(days=8, hours=18)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Bưu tá giao hàng", "by": staff_id, "time": now - timedelta(days=8)},
+                    {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Giao thành công cho khách hàng", "by": staff_id, "time": now - timedelta(days=6)},
+                ],
+            },
+
+            # ==================================================================
+            # KHÁCH HÀNG 4: customer4@example.com (Phạm Thị Dung) - 4 đơn hàng
+            # ==================================================================
+            # Đơn 15: PENDING (Đơn mới đặt cần duyệt)
+            {
+                "customer": user_map.get("customer4@example.com"),
+                "order_code": "ORD20261119015",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.PENDING,
+                "cancel_reason": None,
+                "created_at": now - timedelta(hours=2),
+                "completed_at": None,
+                "note": "Đơn hàng mới đặt: Giao sau 18h tại chung cư Thảo Điền",
+                "items": [
+                    {"product": product_list[54], "quantity": 1},  # Serum Estee Lauder 50ml
+                    {"product": product_list[55], "quantity": 2},  # Kem Chống Nắng La Roche-Posay
+                    {"product": product_list[43], "quantity": 1},  # Máy Pha Cà Phê DeLonghi
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách đặt đơn hàng mỹ phẩm & gia dụng", "by": user_map.get("customer4@example.com").id, "time": now - timedelta(hours=2)},
+                ],
+            },
+            # Đơn 16: CONFIRMED (Đã xác nhận đơn hàng)
+            {
+                "customer": user_map.get("customer4@example.com"),
+                "order_code": "ORD20261118016",
+                "payment_method": PaymentMethod.BANK_TRANSFER,
+                "status": OrderModelStatus.CONFIRMED,
                 "cancel_reason": None,
                 "created_at": now - timedelta(hours=14),
                 "completed_at": None,
-                "note": "Giao giờ hành chính văn phòng",
+                "note": "Đã thanh toán trước qua Internet Banking",
                 "items": [
-                    {"product": product_list[63], "quantity": 1},  # Màn Hình Dell UltraSharp 27 4K
+                    {"product": product_list[35], "quantity": 1},  # Máy Lọc Không Khí Xiaomi 4 Pro
+                    {"product": product_list[38], "quantity": 1},  # Đèn Bàn LED Xiaomi 1S
                 ],
                 "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng chuyển khoản", "by": user_map.get("admin@example.com").id, "time": now - timedelta(hours=14)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Xác nhận đã thanh toán", "by": staff_id, "time": now - timedelta(hours=12)},
-                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đang vận chuyển", "by": staff_id, "time": now - timedelta(hours=4)},
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt hàng", "by": user_map.get("customer4@example.com").id, "time": now - timedelta(hours=14)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên xác nhận đơn", "by": staff_id, "time": now - timedelta(hours=10)},
                 ],
             },
-            # Đơn 12: Admin testing - COMPLETED (Hoàn thành)
+            # Đơn 17: SHIPPING (Đang giao hàng)
             {
-                "customer": user_map.get("admin@example.com"),
-                "order_code": "ORD20261107012",
+                "customer": user_map.get("customer4@example.com"),
+                "order_code": "ORD20261117017",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.SHIPPING,
+                "cancel_reason": None,
+                "created_at": now - timedelta(days=2),
+                "completed_at": None,
+                "note": "Gói quà giúp mình nhé",
+                "items": [
+                    {"product": product_list[53], "quantity": 1},  # Đầm Dạ Hội Nữ Xẻ Tà Dáng Dài
+                    {"product": product_list[59], "quantity": 1},  # Son Môi Tom Ford Casablanca
+                    {"product": product_list[51], "quantity": 1},  # Kính Mát Ray-Ban Aviator
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn COD", "by": user_map.get("customer4@example.com").id, "time": now - timedelta(days=2)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Đã đóng gói cẩn thận", "by": staff_id, "time": now - timedelta(days=1, hours=12)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Bưu tá bắt đầu phát hàng", "by": staff_id, "time": now - timedelta(hours=6)},
+                ],
+            },
+            # Đơn 18: COMPLETED (Hoàn thành)
+            {
+                "customer": user_map.get("customer4@example.com"),
+                "order_code": "ORD20261111018",
                 "payment_method": PaymentMethod.COD,
                 "status": OrderModelStatus.COMPLETED,
                 "cancel_reason": None,
-                "created_at": now - timedelta(days=5),
-                "completed_at": now - timedelta(days=3),
-                "note": None,
+                "created_at": now - timedelta(days=8),
+                "completed_at": now - timedelta(days=5),
+                "note": "Sản phẩm tốt, giao hàng đúng hẹn",
                 "items": [
-                    {"product": product_list[29], "quantity": 2},  # Củ Sạc Nhanh Anker Prime
-                    {"product": product_list[30], "quantity": 1},  # Cáp Sạc C to C
+                    {"product": product_list[22], "quantity": 1},  # Apple Watch Series 9
+                    {"product": product_list[15], "quantity": 1},  # Apple AirPods Pro 2 USB-C
                 ],
                 "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn", "by": user_map.get("admin@example.com").id, "time": now - timedelta(days=5)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Xác nhận đơn", "by": staff_id, "time": now - timedelta(days=4, hours=20)},
-                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Bắt đầu giao", "by": staff_id, "time": now - timedelta(days=4)},
-                    {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Giao thành công", "by": staff_id, "time": now - timedelta(days=3)},
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng", "by": user_map.get("customer4@example.com").id, "time": now - timedelta(days=8)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Xác nhận đơn", "by": staff_id, "time": now - timedelta(days=7, hours=20)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Vận chuyển", "by": staff_id, "time": now - timedelta(days=7)},
+                    {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Đã giao thành công", "by": staff_id, "time": now - timedelta(days=5)},
+                ],
+            },
+
+            # ==================================================================
+            # KHÁCH HÀNG 5: customer5@example.com (Vũ Đức Em) - 4 đơn hàng
+            # ==================================================================
+            # Đơn 19: PENDING (Đơn mới đặt cần duyệt)
+            {
+                "customer": user_map.get("customer5@example.com"),
+                "order_code": "ORD20261119019",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.PENDING,
+                "cancel_reason": None,
+                "created_at": now - timedelta(hours=3),
+                "completed_at": None,
+                "note": "Đơn hàng mới đặt: Cần giao gấp trước thứ 7 để đi cắm trại",
+                "items": [
+                    {"product": product_list[69], "quantity": 1},  # Lều Cắm Trại Naturehike Ango
+                    {"product": product_list[74], "quantity": 2},  # Gậy Leo Núi Naturehike
+                    {"product": product_list[50], "quantity": 1},  # Balo Du Lịch Chống Thấm Nước
+                    {"product": product_list[70], "quantity": 1},  # Thảm Yoga Liforme
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách đặt đơn hàng dã ngoại", "by": user_map.get("customer5@example.com").id, "time": now - timedelta(hours=3)},
+                ],
+            },
+            # Đơn 20: CONFIRMED (Đã xác nhận đơn hàng)
+            {
+                "customer": user_map.get("customer5@example.com"),
+                "order_code": "ORD20261118020",
+                "payment_method": PaymentMethod.BANK_TRANSFER,
+                "status": OrderModelStatus.CONFIRMED,
+                "cancel_reason": None,
+                "created_at": now - timedelta(hours=18),
+                "completed_at": None,
+                "note": "Căng cước vợt 11kg giúp mình nhé",
+                "items": [
+                    {"product": product_list[73], "quantity": 1},  # Vợt Cầu Lông Yonex Astrox 100ZZ
+                    {"product": product_list[71], "quantity": 1},  # Bộ Tạ Tay Bowflex 552
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn", "by": user_map.get("customer5@example.com").id, "time": now - timedelta(hours=18)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên xác nhận đơn và kỹ thuật căng cước", "by": staff_id, "time": now - timedelta(hours=14)},
+                ],
+            },
+            # Đơn 21: SHIPPING (Đang giao hàng)
+            {
+                "customer": user_map.get("customer5@example.com"),
+                "order_code": "ORD20261117021",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.SHIPPING,
+                "cancel_reason": None,
+                "created_at": now - timedelta(days=2),
+                "completed_at": None,
+                "note": "Giao địa chỉ Lạch Tray, Hải Phòng",
+                "items": [
+                    {"product": product_list[75], "quantity": 1},  # Bộ Sách Tư Duy Tinh Gọn
+                    {"product": product_list[78], "quantity": 1},  # Bộ Sách Tâm Lý Học Hành Vi
+                    {"product": product_list[77], "quantity": 1},  # Bút Ký Parker Sonnet
+                    {"product": product_list[79], "quantity": 1},  # Kệ Sách Gỗ 5 Tầng
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt đơn COD", "by": user_map.get("customer5@example.com").id, "time": now - timedelta(days=2)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Duyệt đơn", "by": staff_id, "time": now - timedelta(days=1, hours=16)},
+                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đang vận chuyển về Hải Phòng", "by": staff_id, "time": now - timedelta(hours=14)},
+                ],
+            },
+            # Đơn 22: CANCELLED (Đã hủy)
+            {
+                "customer": user_map.get("customer5@example.com"),
+                "order_code": "ORD20261113022",
+                "payment_method": PaymentMethod.COD,
+                "status": OrderModelStatus.CANCELLED,
+                "cancel_reason": "Kích thước tủ lạnh quá lớn không vừa cửa thang máy chung cư",
+                "created_at": now - timedelta(days=6),
+                "completed_at": None,
+                "note": None,
+                "items": [
+                    {"product": product_list[40], "quantity": 1},  # Tủ Lạnh LG Inverter InstaView
+                ],
+                "histories": [
+                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn", "by": user_map.get("customer5@example.com").id, "time": now - timedelta(days=6)},
+                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CANCELLED, "note": "Khách báo đo lại cửa không vừa nên xin hủy đơn", "by": staff_id, "time": now - timedelta(days=5, hours=20)},
                 ],
             },
         ]
