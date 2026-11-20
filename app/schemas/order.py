@@ -11,6 +11,7 @@ class OrderCreate(BaseModel):
     shipping_address: str = Field(..., min_length=1, max_length=500, description="Địa chỉ giao hàng chi tiết")
     note: str | None = Field(None, max_length=500, description="Ghi chú đơn hàng (nếu có)")
     payment_method: PaymentMethod = Field(default=PaymentMethod.COD, description="Phương thức thanh toán: COD hoặc chuyển khoản")
+    selected_product_ids: list[int] | None = Field(None, description="Danh sách product_id được tích chọn mua. Nếu để trống sẽ đặt toàn bộ giỏ.")
 
 
 # Dữ liệu cập nhật trạng thái đơn hàng (FR-026)
