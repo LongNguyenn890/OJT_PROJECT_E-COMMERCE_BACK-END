@@ -5,7 +5,7 @@ Tài liệu đặc tả liên quan:
 - FR-028: Xem danh sách đơn hàng của khách hàng (hoặc toàn bộ đơn hàng cho Admin/Staff).
 """
 from typing import Optional, List, Tuple
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from datetime import date, datetime
 from sqlalchemy import func, or_
 
@@ -41,7 +41,12 @@ def get_orders_by_user(
 
     total = query.count()
     orders = (
-        query.order_by(Order.created_at.desc())
+        query.options(
+            selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.product_images),
+            selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.category),
+            selectinload(Order.histories),
+        )
+        .order_by(Order.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -90,7 +95,16 @@ def get_order_by_id(db: Session, order_id: int) -> Optional[Order]:
     Returns:
         Đối tượng Order nếu tìm thấy, ngược lại None.
     """
-    return db.query(Order).filter(Order.id == order_id).first()
+    return (
+        db.query(Order)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.product_images),
+            selectinload(Order.items).selectinload(OrderItem.product).selectinload(Product.category),
+            selectinload(Order.histories),
+        )
+        .filter(Order.id == order_id)
+        .first()
+    )
 
 
 def get_order_items(db: Session, order_id: int) -> List[OrderItem]:

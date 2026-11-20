@@ -1354,186 +1354,187 @@ def seed_database(db: Session | None = None):
         staff_id = staff_user.id if staff_user else None
         now = datetime.now()
 
-        sample_orders_data = [
-            # Đơn 1: PENDING (Chờ xác nhận)
-            {
-                "customer": user_map.get("customer1@example.com"),
-                "order_code": "ORD20261112001",
-                "payment_method": PaymentMethod.COD,
-                "status": OrderModelStatus.PENDING,
-                "cancel_reason": None,
-                "created_at": now - timedelta(hours=2),
-                "completed_at": None,
-                "note": "Giao hàng vào giờ hành chính",
-                "items": [
-                    {"product": product_list[0], "quantity": 1},   # iPhone 15 Pro Max
-                    {"product": product_list[29], "quantity": 1},  # Củ Sạc Anker Prime
-                ],
-                "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt đơn thành công", "by": user_map.get("customer1@example.com").id, "time": now - timedelta(hours=2)},
-                ],
-            },
-            # Đơn 2: CONFIRMED (Đã xác nhận)
-            {
-                "customer": user_map.get("customer2@example.com"),
-                "order_code": "ORD20261112002",
-                "payment_method": PaymentMethod.BANK_TRANSFER,
-                "status": OrderModelStatus.CONFIRMED,
-                "cancel_reason": None,
-                "created_at": now - timedelta(hours=5),
-                "completed_at": None,
-                "note": "Đã chuyển khoản qua Vietcombank",
-                "items": [
-                    {"product": product_list[7], "quantity": 1},   # MacBook Pro 14 M3 Pro
-                ],
-                "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt đơn qua chuyển khoản", "by": user_map.get("customer2@example.com").id, "time": now - timedelta(hours=5)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên đã kiểm tra sao kê ngân hàng và xác nhận đơn", "by": staff_id, "time": now - timedelta(hours=4, minutes=30)},
-                ],
-            },
-            # Đơn 3: SHIPPING (Đang giao hàng)
-            {
-                "customer": user_map.get("customer3@example.com"),
-                "order_code": "ORD20261112003",
-                "payment_method": PaymentMethod.COD,
-                "status": OrderModelStatus.SHIPPING,
-                "cancel_reason": None,
-                "created_at": now - timedelta(days=1),
-                "completed_at": None,
-                "note": "Gọi trước khi giao 15 phút",
-                "items": [
-                    {"product": product_list[14], "quantity": 1},  # Sony WH-1000XM5
-                    {"product": product_list[28], "quantity": 1},  # Chuột Logitech MX Master 3S
-                ],
-                "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt hàng COD", "by": user_map.get("customer3@example.com").id, "time": now - timedelta(days=1)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Đơn hàng đã được xác nhận", "by": staff_id, "time": now - timedelta(hours=20)},
-                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đã đóng gói và bàn giao cho bưu tá giao hàng", "by": staff_id, "time": now - timedelta(hours=10)},
-                ],
-            },
-            # Đơn 4: COMPLETED (Đã hoàn thành)
-            {
-                "customer": user_map.get("customer4@example.com"),
-                "order_code": "ORD20261110004",
-                "payment_method": PaymentMethod.BANK_TRANSFER,
-                "status": OrderModelStatus.COMPLETED,
-                "cancel_reason": None,
-                "created_at": now - timedelta(days=3),
-                "completed_at": now - timedelta(days=1),
-                "note": None,
-                "items": [
-                    {"product": product_list[22], "quantity": 1},  # Apple Watch Series 9
-                ],
-                "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng thành công", "by": user_map.get("customer4@example.com").id, "time": now - timedelta(days=3)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Nhân viên xác nhận đơn", "by": staff_id, "time": now - timedelta(days=2, hours=20)},
-                    {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đơn hàng đang trên đường giao tới người nhận", "by": staff_id, "time": now - timedelta(days=2)},
-                    {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Giao hàng thành công, khách đã nhận hàng nguyên vẹn", "by": staff_id, "time": now - timedelta(days=1)},
-                ],
-            },
-            # Đơn 5: CANCELLED (Đã hủy)
-            {
-                "customer": user_map.get("customer5@example.com"),
-                "order_code": "ORD20261111005",
-                "payment_method": PaymentMethod.COD,
-                "status": OrderModelStatus.CANCELLED,
-                "cancel_reason": "Khách hàng đổi ý muốn đổi sang sản phẩm khác",
-                "created_at": now - timedelta(days=1, hours=4),
-                "completed_at": None,
-                "note": None,
-                "items": [
-                    {"product": product_list[34], "quantity": 1},  # Robot Hút Bụi Dreame L20 Ultra
-                ],
-                "histories": [
-                    {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng COD", "by": user_map.get("customer5@example.com").id, "time": now - timedelta(days=1, hours=4)},
-                    {"old": HistoryStatus.PENDING, "new": HistoryStatus.CANCELLED, "note": "Khách gọi hotline yêu cầu hủy đơn do đổi ý", "by": staff_id, "time": now - timedelta(days=1, hours=2)},
-                ],
-            },
-        ]
+        # Danh sách khách hàng nhận đơn mẫu: bao gồm customer1 và bất kỳ tài khoản CUSTOMER nào khác (ví dụ: Hoàng Lê Minh)
+        target_customers = [user_map.get("customer1@example.com")]
+        all_other_customers = db.query(User).filter(User.role == Role.CUSTOMER, User.email != "customer1@example.com").all()
+        # Thêm các khách hàng khác (tối đa 3 người) để họ cũng có đơn khi đăng nhập
+        for other_c in all_other_customers:
+            if other_c and other_c not in target_customers:
+                target_customers.append(other_c)
 
-        for order_info in sample_orders_data:
-            customer = order_info["customer"]
-            user_addr = address_map.get(customer.id)
+        order_idx = 1
+        for customer in target_customers:
+            if not customer:
+                continue
+            user_addr = address_map.get(customer.id) or db.query(Address).filter(Address.user_id == customer.id).first()
+            prefix = "DH" if customer.email == "customer1@example.com" else f"ORD{customer.id}"
 
-            subtotal = sum(int(item["product"].price) * item["quantity"] for item in order_info["items"])
-            shipping_fee = 0 if subtotal >= 500000 else 30000
-            total_amount = subtotal + shipping_fee
+            # 5 Đơn hàng khớp với thiết kế Figma:
+            # 1 PENDING, 1 SHIPPING, 3 COMPLETED, 1 CANCELLED
+            orders_for_user = [
+                # 1. PENDING (Chờ xác nhận) - Giống Card 1 trong Figma
+                {
+                    "order_code": f"{prefix}-20260328-{order_idx:04d}",
+                    "payment_method": PaymentMethod.COD,
+                    "status": OrderModelStatus.PENDING,
+                    "cancel_reason": None,
+                    "created_at": now - timedelta(hours=3, minutes=15),
+                    "completed_at": None,
+                    "note": "Kiểm tra hàng trước khi nhận",
+                    "items": [
+                        {"product": product_list[0], "quantity": 2},   # Áo thun / Sản phẩm mẫu
+                    ],
+                    "histories": [
+                        {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt đơn hàng thành công", "by": customer.id, "time": now - timedelta(hours=3, minutes=15)},
+                    ],
+                },
+                # 2. SHIPPING (Đang giao hàng) - Giống Card 2 trong Figma
+                {
+                    "order_code": f"{prefix}-20260327-{order_idx+1:04d}",
+                    "payment_method": PaymentMethod.BANK_TRANSFER,
+                    "status": OrderModelStatus.SHIPPING,
+                    "cancel_reason": None,
+                    "created_at": now - timedelta(days=1, hours=4),
+                    "completed_at": None,
+                    "note": "Vận đơn: SPX-VN-884920 · Tài xế: Lê Hoàng Long (0988.112.233)",
+                    "items": [
+                        {"product": product_list[14] if len(product_list) > 14 else product_list[0], "quantity": 1},
+                    ],
+                    "histories": [
+                        {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt đơn chuyển khoản", "by": customer.id, "time": now - timedelta(days=1, hours=4)},
+                        {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Đơn hàng đã được xác nhận thanh toán", "by": staff_id, "time": now - timedelta(days=1, hours=2)},
+                        {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Hàng đã xuất kho Tân Bình, bưu tá đang trên tuyến giao", "by": staff_id, "time": now - timedelta(hours=6)},
+                    ],
+                },
+                # 3. COMPLETED (Hoàn thành) - Giống Card 3 trong Figma
+                {
+                    "order_code": f"{prefix}-20260214-{order_idx+2:04d}",
+                    "payment_method": PaymentMethod.BANK_TRANSFER,
+                    "status": OrderModelStatus.COMPLETED,
+                    "cancel_reason": None,
+                    "created_at": now - timedelta(days=15),
+                    "completed_at": now - timedelta(days=13),
+                    "note": "Đã thanh toán qua Thẻ ATM / Napas",
+                    "items": [
+                        {"product": product_list[28] if len(product_list) > 28 else product_list[0], "quantity": 1},
+                    ],
+                    "histories": [
+                        {"old": None, "new": HistoryStatus.PENDING, "note": "Khách hàng đặt đơn thành công", "by": customer.id, "time": now - timedelta(days=15)},
+                        {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Hệ thống xác nhận đơn", "by": staff_id, "time": now - timedelta(days=14, hours=20)},
+                        {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đơn hàng đang giao", "by": staff_id, "time": now - timedelta(days=14)},
+                        {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Giao hàng thành công, khách đã nhận hàng nguyên vẹn", "by": staff_id, "time": now - timedelta(days=13)},
+                    ],
+                },
+                # 4. COMPLETED 2
+                {
+                    "order_code": f"{prefix}-20260201-{order_idx+3:04d}",
+                    "payment_method": PaymentMethod.COD,
+                    "status": OrderModelStatus.COMPLETED,
+                    "cancel_reason": None,
+                    "created_at": now - timedelta(days=25),
+                    "completed_at": now - timedelta(days=22),
+                    "note": None,
+                    "items": [
+                        {"product": product_list[7] if len(product_list) > 7 else product_list[0], "quantity": 1},
+                    ],
+                    "histories": [
+                        {"old": None, "new": HistoryStatus.PENDING, "note": "Đặt hàng COD", "by": customer.id, "time": now - timedelta(days=25)},
+                        {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Xác nhận kho", "by": staff_id, "time": now - timedelta(days=24)},
+                        {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Bàn giao vận chuyển", "by": staff_id, "time": now - timedelta(days=23)},
+                        {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Đã nhận hàng và thu tiền COD", "by": staff_id, "time": now - timedelta(days=22)},
+                    ],
+                },
+                # 5. COMPLETED 3
+                {
+                    "order_code": f"{prefix}-20260115-{order_idx+4:04d}",
+                    "payment_method": PaymentMethod.COD,
+                    "status": OrderModelStatus.COMPLETED,
+                    "cancel_reason": None,
+                    "created_at": now - timedelta(days=40),
+                    "completed_at": now - timedelta(days=37),
+                    "note": None,
+                    "items": [
+                        {"product": product_list[22] if len(product_list) > 22 else product_list[0], "quantity": 1},
+                    ],
+                    "histories": [
+                        {"old": None, "new": HistoryStatus.PENDING, "note": "Khởi tạo đơn hàng", "by": customer.id, "time": now - timedelta(days=40)},
+                        {"old": HistoryStatus.PENDING, "new": HistoryStatus.CONFIRMED, "note": "Duyệt đơn", "by": staff_id, "time": now - timedelta(days=39)},
+                        {"old": HistoryStatus.CONFIRMED, "new": HistoryStatus.SHIPPING, "note": "Đang vận chuyển bưu tá", "by": staff_id, "time": now - timedelta(days=38)},
+                        {"old": HistoryStatus.SHIPPING, "new": HistoryStatus.DELIVERED, "note": "Khách đã ký nhận bưu kiện", "by": staff_id, "time": now - timedelta(days=37)},
+                    ],
+                },
+                # 6. CANCELLED (Đã hủy - để test filter và giao diện Đã hủy)
+                {
+                    "order_code": f"{prefix}-20260110-{order_idx+5:04d}",
+                    "payment_method": PaymentMethod.COD,
+                    "status": OrderModelStatus.CANCELLED,
+                    "cancel_reason": "Khách hàng đổi ý muốn đổi sang sản phẩm khác",
+                    "created_at": now - timedelta(days=45),
+                    "completed_at": None,
+                    "note": None,
+                    "items": [
+                        {"product": product_list[29] if len(product_list) > 29 else product_list[0], "quantity": 1},
+                    ],
+                    "histories": [
+                        {"old": None, "new": HistoryStatus.PENDING, "note": "Tạo đơn hàng COD", "by": customer.id, "time": now - timedelta(days=45)},
+                        {"old": HistoryStatus.PENDING, "new": HistoryStatus.CANCELLED, "note": "Khách hàng yêu cầu hủy đơn hàng (BR-09)", "by": customer.id, "time": now - timedelta(days=45, hours=-1)},
+                    ],
+                },
+            ]
 
-            order = Order(
-                order_code=order_info["order_code"],
-                user_id=customer.id,
-                address_id=user_addr.id if user_addr else None,
-                receiver_name=customer.full_name,
-                receiver_phone=customer.phone,
-                shipping_address=f"{user_addr.street_detail}, {user_addr.ward}, {user_addr.province}" if user_addr else "Hà Nội",
-                note=order_info["note"],
-                payment_method=order_info["payment_method"],
-                subtotal_amount=subtotal,
-                shipping_fee=shipping_fee,
-                total_amount=total_amount,
-                status=order_info["status"],
-                cancel_reason=order_info["cancel_reason"],
-                created_at=order_info["created_at"],
-                completed_at=order_info["completed_at"],
-            )
-            db.add(order)
-            db.flush()
+            order_idx += 10
 
-            # Thêm các sản phẩm trong đơn (OrderItem)
-            for item in order_info["items"]:
-                prod = item["product"]
-                qty = item["quantity"]
-                unit_price = int(prod.price)
-                order_item = OrderItem(
-                    order_id=order.id,
-                    product_id=prod.id,
-                    product_name=prod.name,
-                    unit_price=unit_price,
-                    quantity=qty,
-                    subtotal=unit_price * qty,
+            for order_info in orders_for_user:
+                subtotal = sum(int(item["product"].price) * item["quantity"] for item in order_info["items"])
+                shipping_fee = 0 if subtotal >= 500000 else 30000
+                total_amount = subtotal + shipping_fee
+
+                order = Order(
+                    order_code=order_info["order_code"],
+                    user_id=customer.id,
+                    address_id=user_addr.id if user_addr else None,
+                    receiver_name=customer.full_name,
+                    receiver_phone=customer.phone,
+                    shipping_address=f"{user_addr.street_detail}, {user_addr.ward}, {user_addr.province}" if user_addr else "124 Lê Lợi, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh",
+                    note=order_info["note"],
+                    payment_method=order_info["payment_method"],
+                    subtotal_amount=subtotal,
+                    shipping_fee=shipping_fee,
+                    total_amount=total_amount,
+                    status=order_info["status"],
+                    cancel_reason=order_info["cancel_reason"],
+                    created_at=order_info["created_at"],
+                    completed_at=order_info["completed_at"],
                 )
-                db.add(order_item)
+                db.add(order)
+                db.flush()
 
-                # Ghi nhận StockLog trừ tồn kho khi tạo đơn
-                stock_log_order = StockLog(
-                    product_id=prod.id,
-                    order_id=order.id,
-                    created_by=customer.id,
-                    change_type=ChangeType.ORDER,
-                    quantity_change=-qty,
-                    stock_before=prod.stock_quantity,
-                    stock_after=prod.stock_quantity - qty,
-                    note=f"Trừ tồn kho khi tạo đơn hàng {order.order_code}",
-                )
-                db.add(stock_log_order)
-
-                # Nếu đơn hàng bị hủy, ghi nhận StockLog hoàn tồn kho (CANCEL)
-                if order.status == OrderModelStatus.CANCELLED:
-                    stock_log_cancel = StockLog(
-                        product_id=prod.id,
+                for item in order_info["items"]:
+                    prod = item["product"]
+                    qty = item["quantity"]
+                    unit_price = int(prod.price)
+                    order_item = OrderItem(
                         order_id=order.id,
-                        created_by=staff_id,
-                        change_type=ChangeType.CANCEL,
-                        quantity_change=qty,
-                        stock_before=prod.stock_quantity - qty,
-                        stock_after=prod.stock_quantity,
-                        note=f"Hoàn lại tồn kho do đơn hàng {order.order_code} bị hủy",
+                        product_id=prod.id,
+                        product_name=prod.name,
+                        unit_price=unit_price,
+                        quantity=qty,
+                        subtotal=unit_price * qty,
                     )
-                    db.add(stock_log_cancel)
+                    db.add(order_item)
 
-            # Thêm lịch sử trạng thái đơn hàng (OrderStatusHistory)
-            for h in order_info["histories"]:
-                status_history = OrderStatusHistory(
-                    order_id=order.id,
-                    changed_by=h["by"],
-                    old_status=h["old"],
-                    new_status=h["new"],
-                    note=h["note"],
-                    changed_at=h["time"],
-                )
-                db.add(status_history)
+                for h in order_info["histories"]:
+                    status_history = OrderStatusHistory(
+                        order_id=order.id,
+                        changed_by=h["by"],
+                        old_status=h["old"],
+                        new_status=h["new"],
+                        note=h["note"],
+                        changed_at=h["time"],
+                    )
+                    db.add(status_history)
 
-            print(f"  + Đơn hàng [{order.order_code}] - Khách: {customer.full_name} | Trạng thái: {order.status.value} | Tổng tiền: {order.total_amount:,.0f} đ ({len(order_info['items'])} món)")
+                print(f"  + Tạo đơn {order.order_code} ({order.status.value}) cho KH: {customer.full_name}")
 
         db.commit()
 

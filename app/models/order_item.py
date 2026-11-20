@@ -18,3 +18,21 @@ class OrderItem(Base):
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product")
+
+    @property
+    def image_url(self) -> str | None:
+        if self.product and self.product.product_images:
+            return self.product.product_images[0].image_url
+        return None
+
+    @property
+    def category_name(self) -> str | None:
+        if self.product and self.product.category:
+            return self.product.category.name
+        return None
+
+    @property
+    def sku(self) -> str | None:
+        if self.product:
+            return self.product.sku
+        return None

@@ -10,5 +10,8 @@ class OrderItemResponse(BaseModel):
     unit_price: int = Field(description="Đơn giá tại thời điểm đặt hàng (BR-06)")
     quantity: int = Field(description="Số lượng sản phẩm")
     subtotal: int = Field(description="Thành tiền = đơn giá x số lượng")
+    image_url: str | None = Field(None, description="Ảnh đại diện sản phẩm")
+    category_name: str | None = Field(None, description="Tên danh mục ngành hàng")
+    sku: str | None = Field(None, description="Mã phân loại SKU sản phẩm")
 
     model_config = ConfigDict(from_attributes=True)
