@@ -11,12 +11,16 @@ from typing import Optional, List
 from enum import Enum
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import date, datetime, time
+from sqlalchemy import String, func, or_
+
 
 from app.db.session import get_db
 from app.dependencies import require_customer
 from app.dependencies.auth import get_current_user
 from app.models.user import User
+from app.models.order import Order, OrderStatus
+from app.models.order_item import OrderItem
 from app.schemas import (
     MyOrdersPaginationResponse,
     OrderDetailResponse,
@@ -31,11 +35,26 @@ from app.service import order as order_service
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
+reports_router = APIRouter(
+    prefix="/admin/reports/orders-count",
+    tags=["Admin Reports"],
+)
+
 VALID_TRANSITIONS = {
     "PENDING": ["CONFIRMED"],
     "CONFIRMED": ["SHIPPING"],
     "SHIPPING": ["COMPLETED"],
 }
+
+# PENDING="Chờ xác nhận", CONFIRMED="Đã xác nhận", SHIPPING="Đang giao", COMPLETED="Hoàn thành", CANCELLED="Hủy".
+REVENUE_ORDER_VALUES = (
+    "DELIVERED",
+    "COMPLETED",
+    OrderStatus.COMPLETED.value,
+    "COUNTER",
+    "POS",
+)
+COUNTER_CHANNEL_VALUES = ("COUNTER", "POS", "IN_STORE", "OFFLINE")
 
 class OrderStatusFilter(str, Enum):
     """Bộ lọc trạng thái đơn hàng phục vụ API tìm kiếm/phân loại."""
@@ -400,3 +419,196 @@ def read_order_status_histories(
         )
 
     return crud_order_histories.get_order_histories(db=db, order_id=id)
+
+def _require_report_role(current_user: User) -> None:
+    """Chỉ cho phép ADMIN hoặc STAFF truy cập báo cáo thống kê."""
+    raw_role = getattr(current_user, "role", "")
+    user_role = str(getattr(raw_role, "value", raw_role) or "").upper()
+    if user_role not in ("ADMIN", "STAFF"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền xem báo cáo bán hàng (chỉ dành cho ADMIN/STAFF)",
+        )
+
+
+def _resolve_report_dates(
+    from_date: Optional[date], to_date: Optional[date]
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Kiểm tra khoảng ngày hợp lệ (FR-041) và chuẩn hóa mốc đầu/cuối ngày."""
+    if from_date and to_date and from_date > to_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Ngày bắt đầu (from_date) không được lớn hơn ngày kết thúc (to_date)",
+        )
+    start_dt = datetime.combine(from_date, time.min) if from_date else None
+    end_dt = datetime.combine(to_date, time.max) if to_date else None
+    return start_dt, end_dt
+
+
+def _filter_dt_range(
+    query, column, start_dt: Optional[datetime], end_dt: Optional[datetime]
+):
+    if start_dt is not None:
+        query = query.filter(column >= start_dt)
+    if end_dt is not None:
+        query = query.filter(column <= end_dt)
+    return query
+
+
+def _revenue_filter_condition():
+    """Điều kiện tính doanh thu: đơn DELIVERED/COMPLETED (hoặc 'Hoàn thành') và đơn bán tại quầy."""
+    status_text = Order.status.cast(String)
+    cond = or_(
+        func.upper(status_text).in_([v.upper() for v in REVENUE_ORDER_VALUES]),
+        status_text.in_(REVENUE_ORDER_VALUES),
+    )
+    for col_name in ("channel", "source", "order_type"):
+        if hasattr(Order, col_name):
+            col = getattr(Order, col_name)
+            cond = or_(cond, func.upper(col).in_(COUNTER_CHANNEL_VALUES))
+    return cond
+
+
+def _normalize_status_key(raw_status) -> str:
+    """Chuẩn hóa trạng thái đơn hàng về key thống nhất."""
+    val = getattr(raw_status, "value", raw_status)
+    s = str(val or "").strip()
+    status_map = {
+        OrderStatus.PENDING.value: "PENDING",
+        OrderStatus.CONFIRMED.value: "CONFIRMED",
+        OrderStatus.SHIPPING.value: "SHIPPING",
+        OrderStatus.COMPLETED.value: "COMPLETED",
+        OrderStatus.CANCELLED.value: "CANCELLED",
+    }
+    return status_map.get(s, s.upper())
+
+
+@reports_router.get(
+    "",
+    summary="Báo cáo bán hàng tổng hợp (FR-037..041)",
+    description=(
+        "Thống kê tổng số đơn, doanh thu (đơn DELIVERED/COMPLETED và bán tại quầy), "
+        "tổng số sản phẩm đã bán, đơn theo trạng thái, top 10 sản phẩm bán chạy "
+        "và doanh thu theo ngày, hỗ trợ lọc theo khoảng thời gian (`from_date`, `to_date`)."
+    ),
+)
+def get_sales_report(
+    from_date: Optional[date] = Query(None, description="Từ ngày (YYYY-MM-DD)"),
+    to_date: Optional[date] = Query(None, description="Đến ngày (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """API báo cáo bán hàng gắn tại /api/admin/reports/orders-count (FR-037..041)."""
+    _require_report_role(current_user)
+    start_dt, end_dt = _resolve_report_dates(from_date, to_date)
+
+    # 1. Tổng số đơn hàng theo ngày tạo (FR-037, FR-041)
+    orders_q = _filter_dt_range(db.query(Order), Order.created_at, start_dt, end_dt)
+    total_orders = orders_q.with_entities(func.count(Order.id)).scalar() or 0
+
+    # 2. Thống kê số đơn theo trạng thái (FR-040)
+    status_rows = (
+        _filter_dt_range(
+            db.query(Order.status, func.count(Order.id).label("cnt")),
+            Order.created_at,
+            start_dt,
+            end_dt,
+        )
+        .group_by(Order.status)
+        .all()
+    )
+    orders_by_status = {
+        "PENDING": 0,
+        "CONFIRMED": 0,
+        "SHIPPING": 0,
+        "DELIVERED": 0,
+        "COMPLETED": 0,
+        "CANCELLED": 0,
+    }
+    for row in status_rows:
+        key = _normalize_status_key(row.status)
+        orders_by_status[key] = orders_by_status.get(key, 0) + int(row.cnt)
+
+    # 3. Doanh thu & doanh thu theo ngày (DELIVERED/COMPLETED + bán tại quầy - FR-038)
+    revenue_dt_col = func.coalesce(Order.completed_at, Order.created_at)
+    revenue_q = _filter_dt_range(
+        db.query(Order).filter(_revenue_filter_condition()),
+        revenue_dt_col,
+        start_dt,
+        end_dt,
+    )
+    total_revenue = (
+        revenue_q.with_entities(
+            func.coalesce(func.sum(Order.total_amount), 0)
+        ).scalar()
+        or 0
+    )
+
+    day_expr = func.date(revenue_dt_col)
+    daily_rows = (
+        revenue_q.with_entities(
+            day_expr.label("report_date"),
+            func.count(Order.id).label("orders_count"),
+            func.coalesce(func.sum(Order.total_amount), 0).label("revenue"),
+        )
+        .group_by(day_expr)
+        .order_by(day_expr.asc())
+        .all()
+    )
+    daily_revenue = [
+        {
+            "date": str(row.report_date),
+            "orders_count": int(row.orders_count),
+            "revenue": int(row.revenue),
+        }
+        for row in daily_rows
+    ]
+
+    # 4. Tổng số sản phẩm đã bán & Top 10 sản phẩm bán chạy (FR-039)
+    sold_items_q = _filter_dt_range(
+        db.query(OrderItem)
+        .join(Order, OrderItem.order_id == Order.id)
+        .filter(_revenue_filter_condition()),
+        revenue_dt_col,
+        start_dt,
+        end_dt,
+    )
+    total_products_sold = (
+        sold_items_q.with_entities(
+            func.coalesce(func.sum(OrderItem.quantity), 0)
+        ).scalar()
+        or 0
+    )
+
+    top_10_rows = (
+        sold_items_q.with_entities(
+            OrderItem.product_id,
+            OrderItem.product_name,
+            func.coalesce(func.sum(OrderItem.quantity), 0).label("quantity_sold"),
+            func.coalesce(func.sum(OrderItem.subtotal), 0).label("revenue"),
+        )
+        .group_by(OrderItem.product_id, OrderItem.product_name)
+        .order_by(func.sum(OrderItem.quantity).desc())
+        .limit(10)
+        .all()
+    )
+    top_10_products = [
+        {
+            "product_id": row.product_id,
+            "product_name": row.product_name,
+            "quantity_sold": int(row.quantity_sold),
+            "revenue": int(row.revenue),
+        }
+        for row in top_10_rows
+    ]
+
+    return {
+        "from_date": from_date,
+        "to_date": to_date,
+        "total_orders": int(total_orders),
+        "total_revenue": int(total_revenue),
+        "total_products_sold": int(total_products_sold),
+        "orders_by_status": orders_by_status,
+        "top_10_products": top_10_products,
+        "daily_revenue": daily_revenue,
+    }
