@@ -35,11 +35,6 @@ from app.service import order as order_service
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
-reports_router = APIRouter(
-    prefix="/admin/reports/orders-count",
-    tags=["Admin Reports"],
-)
-
 VALID_TRANSITIONS = {
     "PENDING": ["CONFIRMED"],
     "CONFIRMED": ["SHIPPING"],
@@ -483,7 +478,7 @@ def _normalize_status_key(raw_status) -> str:
     return status_map.get(s, s.upper())
 
 
-@reports_router.get(
+@router.get(
     "",
     summary="Báo cáo bán hàng tổng hợp (FR-037..041)",
     description=(
