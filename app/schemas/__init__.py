@@ -24,6 +24,12 @@ from app.schemas.customer import (
     CustomerDetailResponse,
     CustomerOrdersPaginationResponse,
 )
+from app.schemas.staff import (
+    StaffCreate,
+    StaffUpdate,
+    StaffStatusUpdate,
+    StaffPaginationResponse,
+)
 from app.schemas.user import (
     UserCreate,
     StaffCreate,

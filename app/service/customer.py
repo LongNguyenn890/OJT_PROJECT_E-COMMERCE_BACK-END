@@ -2,9 +2,10 @@
 
 Chức năng:
 - Danh sách khách hàng phân trang, tìm kiếm theo tên/email/SĐT, thống kê tổng số đơn và tổng chi tiêu.
-- Xem chi tiết thông tin khách hàng, thống kê đơn hoàn thành, đơn hủy, các đơn gần đây.
-- Lịch sử mua hàng của khách hàng (phân trang, lọc theo trạng thái).
+- Xem chi tiết thông tin khách hàng, sổ địa chỉ, thống kê đơn hoàn thành, đơn hủy, các đơn gần đây.
+- Lịch sử mua hàng của khách hàng (phân trang, lọc theo trạng thái đơn hàng).
 - Cập nhật trạng thái khách hàng (khóa/mở khóa tài khoản).
+- Xóa tài khoản khách hàng (khóa bảo tồn dữ liệu nếu đã có đơn hàng).
 """
 from typing import Optional, Tuple, List, Dict, Any
 from sqlalchemy.orm import Session, selectinload
@@ -20,8 +21,6 @@ def get_customers_list(
     db: Session,
     keyword: Optional[str] = None,
     status_filter: Optional[str] = None,
-    role_filter: Optional[str] = "CUSTOMER",
-    exclude_user_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 10,
 ) -> Tuple[int, List[Dict[str, Any]]]:
@@ -55,6 +54,7 @@ def get_customers_list(
         .subquery()
     )
 
+    # Nghiệp vụ Khách hàng: Luôn luôn chỉ lấy tài khoản có vai trò CUSTOMER
     query = (
         db.query(
             User,
@@ -62,18 +62,8 @@ def get_customers_list(
             func.coalesce(order_stats.c.total_spent, 0).label("total_spent"),
         )
         .outerjoin(order_stats, order_stats.c.user_id == User.id)
+        .filter(User.role == Role.CUSTOMER)
     )
-
-    # Lọc theo vai trò (mặc định là CUSTOMER nếu không chỉ định ALL)
-    if role_filter:
-        rf = role_filter.upper()
-        if rf in ("INTERNAL", "STAFF_ALL", "ALL_STAFF"):
-            query = query.filter(User.role.in_([Role.STAFF, Role.ADMIN]))
-        elif rf != "ALL":
-            if rf in Role.__members__:
-                query = query.filter(User.role == Role[rf])
-            else:
-                query = query.filter(User.role == rf)
 
     # Lọc theo trạng thái tài khoản nếu có
     if status_filter and status_filter.strip():
@@ -93,10 +83,6 @@ def get_customers_list(
                 User.phone.like(kw),
             )
         )
-
-    # Loại trừ tài khoản chỉ định (ví dụ tài khoản của chính admin đang đăng nhập)
-    if exclude_user_id:
-        query = query.filter(User.id != exclude_user_id)
 
     total = query.count()
     results = (
@@ -131,13 +117,13 @@ def get_customer_detail(db: Session, customer_id: int) -> Dict[str, Any]:
     customer = (
         db.query(User)
         .options(selectinload(User.addresses))
-        .filter(User.id == customer_id)
+        .filter(User.id == customer_id, User.role == Role.CUSTOMER)
         .first()
     )
     if not customer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Khách hàng với ID {customer_id} không tồn tại",
+            detail=f"Không tìm thấy khách hàng với ID #{customer_id}",
         )
 
     orders = (
@@ -208,11 +194,11 @@ def get_customer_orders(
     page_size: int = 10,
 ) -> Tuple[int, List[Dict[str, Any]]]:
     """Lấy danh sách lịch sử mua hàng của khách hàng kèm phân trang và lọc trạng thái."""
-    customer = db.query(User.id).filter(User.id == customer_id).first()
+    customer = db.query(User.id).filter(User.id == customer_id, User.role == Role.CUSTOMER).first()
     if not customer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Khách hàng với ID {customer_id} không tồn tại",
+            detail=f"Không tìm thấy khách hàng với ID #{customer_id}",
         )
 
     query = (
@@ -221,17 +207,14 @@ def get_customer_orders(
         .filter(Order.user_id == customer_id)
     )
 
-    if status_filter:
+    if status_filter and status_filter.strip():
+        sf = status_filter.strip()
         query = query.filter(
             or_(
-                Order.status == status_filter,
-                Order.status == status_filter.upper(),
+                Order.status == sf,
+                Order.status == sf.upper(),
             )
         )
-
-    # Loại trừ tài khoản chỉ định (ví dụ tài khoản của chính admin đang đăng nhập)
-    if exclude_user_id:
-        query = query.filter(User.id != exclude_user_id)
 
     total = query.count()
     orders = (
@@ -268,12 +251,12 @@ def update_customer_status(
     customer_id: int,
     new_status: Any,
 ) -> User:
-    """Cập nhật trạng thái tài khoản (khóa hoặc kích hoạt)."""
-    customer = db.query(User).filter(User.id == customer_id).first()
+    """Cập nhật trạng thái tài khoản khách hàng (khóa hoặc kích hoạt)."""
+    customer = db.query(User).filter(User.id == customer_id, User.role == Role.CUSTOMER).first()
     if not customer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tài khoản với ID {customer_id} không tồn tại",
+            detail=f"Không tìm thấy khách hàng với ID #{customer_id}",
         )
     st_val = getattr(new_status, "value", str(new_status)).strip().upper()
     if st_val in ("LOCKED", "LOCK"):
@@ -285,64 +268,30 @@ def update_customer_status(
     return customer
 
 
-def delete_user(db: Session, user_id: int) -> Dict[str, Any]:
-    """Admin xóa tài khoản người dùng hoặc nhân viên."""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+def delete_customer(db: Session, customer_id: int) -> Dict[str, Any]:
+    """Xóa tài khoản khách hàng (chuyển sang LOCKED nếu đã có đơn hàng để bảo toàn lịch sử giao dịch)."""
+    customer = db.query(User).filter(User.id == customer_id, User.role == Role.CUSTOMER).first()
+    if not customer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Không tìm thấy tài khoản người dùng có ID #{user_id}",
+            detail=f"Không tìm thấy khách hàng với ID #{customer_id}",
         )
 
-    # Kiểm tra xem tài khoản có đơn hàng liên kết không
-    order_count = db.query(Order).filter(Order.user_id == user_id).count()
+    # Kiểm tra xem khách hàng đã có đơn hàng trong hệ thống hay chưa
+    order_count = db.query(Order).filter(Order.user_id == customer_id).count()
     if order_count > 0:
-        # Nếu có đơn hàng liên kết, chuyển trạng thái sang LOCKED để bảo toàn tính toàn vẹn dữ liệu
-        user.status = Status.LOCK
+        customer.status = Status.LOCK
         db.commit()
         return {
-            "message": f"Tài khoản {user.full_name} đã có {order_count} đơn hàng trong lịch sử. Hệ thống đã khóa tài khoản thay vì xóa vĩnh viễn để bảo tồn dữ liệu kiểm toán.",
+            "message": f"Khách hàng {customer.full_name} đã có {order_count} đơn hàng trong lịch sử. Hệ thống đã khóa tài khoản thay vì xóa vĩnh viễn để bảo tồn dữ liệu báo cáo.",
             "action": "locked",
-            "id": user_id,
+            "id": customer_id,
         }
 
-    db.delete(user)
+    db.delete(customer)
     db.commit()
     return {
-        "message": f"Đã xóa thành công tài khoản {user.full_name} (#{user_id}) khỏi hệ thống.",
+        "message": f"Đã xóa thành công tài khoản khách hàng {customer.full_name} (#{customer_id}) khỏi hệ thống.",
         "action": "deleted",
-        "id": user_id,
+        "id": customer_id,
     }
-
-
-def update_staff_member(
-    db: Session,
-    staff_id: int,
-    full_name: Optional[str] = None,
-    phone: Optional[str] = None,
-    password: Optional[str] = None,
-    role: Optional[str] = None,
-) -> User:
-    """Admin cập nhật thông tin nhân viên."""
-    staff = db.query(User).filter(User.id == staff_id).first()
-    if not staff:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Không tìm thấy tài khoản nhân viên có ID #{staff_id}",
-        )
-
-    if full_name and full_name.strip():
-        staff.full_name = full_name.strip()
-    if phone and phone.strip():
-        staff.phone = phone.strip()
-    if role and role.strip():
-        rf = role.strip().upper()
-        if rf in Role.__members__:
-            staff.role = Role[rf]
-    if password and password.strip():
-        from app.core.security import hash_password
-        staff.password_hash = hash_password(password.strip())
-
-    db.commit()
-    db.refresh(staff)
-    return staff

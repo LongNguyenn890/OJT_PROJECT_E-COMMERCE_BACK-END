@@ -10,6 +10,6 @@ Bao gồm:
 - categories: Quản lý danh mục sản phẩm (FR-014 -> FR-017, quyền Admin/Staff thêm sửa xóa).
 - customers: Quản lý khách hàng, lịch sử mua hàng, thống kê chi tiêu (quyền Admin/Staff).
 """
-from app.routers import auth, cart, health, inventory, order_histories, products, categories, customers
+from app.routers import auth, cart, health, inventory, order_histories, products, categories, customers, staff
 
-__all__ = ["auth", "cart", "health", "inventory", "order_histories", "products", "categories", "customers"]
+__all__ = ["auth", "cart", "health", "inventory", "order_histories", "products", "categories", "customers", "staff"]
