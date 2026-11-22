@@ -11,7 +11,11 @@ def get_or_create_cart(db: Session, user_id: int) -> Cart:
     """Lấy giỏ hàng của user hoặc tạo mới nếu chưa có (BR-20: mỗi user 1 giỏ)."""
     cart = db.scalar(
         select(Cart)
-        .options(selectinload(Cart.cart_items).joinedload(CartItem.product))
+        .options(
+            selectinload(Cart.cart_items)
+            .joinedload(CartItem.product)
+            .selectinload(Product.product_images)
+        )
         .where(Cart.user_id == user_id)
     )
     if cart is None:
@@ -24,6 +28,7 @@ def get_or_create_cart(db: Session, user_id: int) -> Cart:
 
 def get_cart_by_user(db: Session, user_id: int) -> Cart:
     """Lấy toàn bộ thông tin giỏ hàng của user (FR-021)."""
+    db.expire_all()
     return get_or_create_cart(db, user_id)
 
 
@@ -98,7 +103,7 @@ def add_item_to_cart(db: Session, user_id: int, product_id: int, quantity: int =
             cart_id=cart.id,
             product_id=product.id,
             quantity=quantity,
-            price_at_add=product.price,
+            price_at_add=int(product.price),
         )
         db.add(cart_item)
 

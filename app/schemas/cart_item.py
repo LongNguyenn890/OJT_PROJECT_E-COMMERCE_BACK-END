@@ -28,6 +28,7 @@ class CartItemResponse(BaseModel):
     price_changed: bool = Field(False, description="Đánh dấu giá hiện tại đã thay đổi so với lúc thêm")
     out_of_stock: bool = Field(False, description="Hết hàng hoặc số lượng trong giỏ vượt tồn kho")
     warning: str | None = Field(None, description="Cảnh báo thay đổi giá hoặc tồn kho (nếu có)")
+    image_url: str | None = Field(None, description="Đường dẫn ảnh sản phẩm (nếu có)")
     created_at: datetime
     updated_at: datetime
 
