@@ -21,6 +21,7 @@ from app.routers import (
     inventory,
     order_histories,
     products,
+    staff,
 )
 
 
@@ -115,6 +116,10 @@ tags_metadata = [
         "description": "Quản lý khách hàng dành cho Admin & Staff: danh sách, tìm kiếm, chi tiết, lịch sử mua hàng, thống kê chi tiêu.",
     },
     {
+        "name": "Staff",
+        "description": "Quản lý nhân viên nội bộ dành riêng cho Quản trị viên (Staff Management): danh sách, tạo mới, chỉnh sửa, phân quyền và khóa tài khoản.",
+    },
+    {
         "name": "Inventory",
         "description": "Quản lý kho hàng: theo dõi tồn kho, cảnh báo sắp hết hàng, nhập hàng, kiểm kê và nhật ký biến động kho.",
     },
@@ -157,6 +162,7 @@ app.include_router(categories.router, prefix="/api")
 app.include_router(cart.router, prefix="/api")
 app.include_router(order_histories.router, prefix="/api")
 app.include_router(customers.router, prefix="/api")
+app.include_router(staff.router, prefix="/api")
 app.include_router(inventory.router, prefix="/api")
 app.include_router(health.router, prefix="/api")
 

@@ -46,6 +46,15 @@ from app.service.customer import (
     get_customer_orders,
     update_customer_status,
 )
+from app.service import staff as staff_service
+from app.service.staff import (
+    get_staff_list,
+    get_staff_detail,
+    create_staff_member,
+    update_staff_member,
+    update_staff_status,
+    delete_staff_member,
+)
 from app.service import product as product_service
 from app.service.product import (
     create_product,

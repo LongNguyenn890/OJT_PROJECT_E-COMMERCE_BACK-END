@@ -1,11 +1,12 @@
 """Router quản lý khách hàng dành cho Admin & Nhân viên (Customer Management Router).
 
-Tài liệu đặc tả và tính năng:
+Tài liệu đặc tả và tính năng nghiệp vụ:
 - Xem danh sách khách hàng phân trang, hỗ trợ tìm kiếm đa năng theo họ tên, email hoặc số điện thoại.
 - Thống kê tự động trên từng khách hàng: Tổng số đơn hàng (`total_orders`) và tổng chi tiêu thực tế (`total_spent`).
 - Xem thông tin chi tiết khách hàng: Hồ sơ, danh sách sổ địa chỉ, phân tích đơn hoàn thành / đơn hủy, danh sách đơn hàng gần đây.
 - Lịch sử mua hàng của khách hàng: Phân trang chi tiết các đơn hàng của khách, hỗ trợ lọc theo trạng thái đơn hàng.
 - Khóa / Kích hoạt tài khoản khách hàng (chuyển đổi trạng thái ACTIVE / LOCKED).
+- Xóa tài khoản khách hàng (bảo toàn dữ liệu kiểm toán nếu khách đã phát sinh đơn).
 - Phân quyền: Toàn bộ API trong module này yêu cầu quyền Quản trị viên (ADMIN) hoặc Nhân viên (STAFF).
 """
 from typing import Optional
@@ -13,16 +14,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models.user import User, Status, Role
-from app.dependencies.auth import require_admin, require_admin_or_staff
+from app.models.user import User
+from app.dependencies.auth import require_admin_or_staff
 from app.schemas.customer import (
     CustomerPaginationResponse,
     CustomerDetailResponse,
     CustomerOrdersPaginationResponse,
 )
-from app.schemas.user import UserStatusUpdate, UserResponse, StaffCreate, StaffUpdate
+from app.schemas.user import UserStatusUpdate, UserResponse
 from app.service import customer as customer_service
-from app.service.auth import create_user
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
 
@@ -45,8 +45,6 @@ router = APIRouter(prefix="/customers", tags=["Customers"])
 def get_customers(
     keyword: Optional[str] = Query(None, description="Tìm kiếm theo họ tên, email hoặc số điện thoại khách hàng"),
     status: Optional[str] = Query(None, description="Lọc theo trạng thái tài khoản: ACTIVE hoặc LOCKED"),
-    role: Optional[str] = Query("CUSTOMER", description="Lọc theo vai trò người dùng (mặc định: CUSTOMER, hoặc ALL)"),
-    exclude_self: bool = Query(False, description="Loại trừ tài khoản đang đăng nhập khỏi danh sách"),
     page: int = Query(1, ge=1, description="Số trang hiện tại (bắt đầu từ 1)"),
     page_size: int = Query(10, ge=1, le=100, description="Số khách hàng hiển thị mỗi trang (tối đa 100)"),
     current_user: User = Depends(require_admin_or_staff),
@@ -57,8 +55,6 @@ def get_customers(
         db=db,
         keyword=keyword,
         status_filter=status,
-        role_filter=role,
-        exclude_user_id=current_user.id if exclude_self else None,
         page=page,
         page_size=page_size,
     )
@@ -131,89 +127,15 @@ def get_customer_order_history(
     }
 
 
-@router.post(
-    "/staff",
-    response_model=UserResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Admin tạo tài khoản nhân viên mới (STAFF)",
-    description=(
-        "Chỉ Quản trị viên (ADMIN) mới có quyền tạo tài khoản nhân viên nội bộ.\n"
-        "- **Dữ liệu đầu vào**: Họ tên, email, số điện thoại, mật khẩu.\n"
-        "- Tài khoản tạo xong sẽ có vai trò `STAFF` và trạng thái `ACTIVE`.\n"
-        "- **Quyền hạn yêu cầu**: `ADMIN`.\n"
-        "- **Mã lỗi**: `403 Forbidden` nếu không phải ADMIN; `409 Conflict` nếu email đã tồn tại."
-    ),
-)
-def create_staff_account(
-    payload: StaffCreate,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Admin tạo tài khoản nhân viên mới."""
-    new_staff = create_user(db, payload)
-    if new_staff in ("EXISTED_EMAIL", "EMAIL_ALREADY_EXISTS"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email này đã được sử dụng trong hệ thống",
-        )
-    return new_staff
-
-
-@router.put(
-    "/staff/{id}",
-    response_model=UserResponse,
-    summary="Admin cập nhật thông tin nhân viên",
-    description="Cập nhật họ tên, số điện thoại, vai trò hoặc đổi mật khẩu cho nhân viên.",
-)
-def update_staff_account(
-    id: int,
-    payload: StaffUpdate,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Admin cập nhật thông tin tài khoản nhân viên."""
-    return customer_service.update_staff_member(
-        db=db,
-        staff_id=id,
-        full_name=payload.full_name,
-        phone=payload.phone,
-        password=payload.password,
-        role=payload.role,
-    )
-
-
-@router.delete(
-    "/{id}",
-    summary="Admin xóa tài khoản người dùng hoặc nhân viên",
-    description=(
-        "Chỉ Quản trị viên (ADMIN) mới có quyền xóa tài khoản.\n"
-        "- Nếu người dùng đã có đơn hàng trong hệ thống, chuyển sang trạng thái LOCKED để bảo toàn dữ liệu.\n"
-        "- Nếu chưa có đơn hàng, xóa vĩnh viễn khỏi hệ thống."
-    ),
-)
-def delete_user_account(
-    id: int,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Admin xóa tài khoản người dùng hoặc nhân viên."""
-    if current_user.id == id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Không thể tự xóa tài khoản của chính bạn đang đăng nhập",
-        )
-    return customer_service.delete_user(db=db, user_id=id)
-
-
 @router.patch(
     "/{id}/status",
     response_model=UserResponse,
-    summary="Khóa hoặc mở khóa tài khoản người dùng",
+    summary="Khóa hoặc mở khóa tài khoản khách hàng",
     description=(
-        "Cập nhật trạng thái tài khoản thành `ACTIVE` (hoạt động) hoặc `LOCKED` (khóa).\n"
-        "- Khi tài khoản bị khóa (`LOCKED`), người dùng sẽ không thể đăng nhập vào hệ thống.\n"
+        "Cập nhật trạng thái tài khoản khách hàng thành `ACTIVE` (hoạt động) hoặc `LOCKED` (khóa).\n"
+        "- Khi tài khoản bị khóa (`LOCKED`), khách hàng sẽ không thể đăng nhập vào hệ thống.\n"
         "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`.\n"
-        "- **Mã lỗi**: `400 Bad Request` nếu tự khóa chính mình; `404 Not Found` nếu không tìm thấy người dùng."
+        "- **Mã lỗi**: `404 Not Found` nếu không tìm thấy khách hàng."
     ),
 )
 def update_customer_status(
@@ -222,15 +144,29 @@ def update_customer_status(
     current_user: User = Depends(require_admin_or_staff),
     db: Session = Depends(get_db),
 ):
-    """Admin hoặc Staff khóa hoặc mở khóa tài khoản người dùng."""
-    st_val = str(payload.status).strip().upper()
-    if current_user.id == id and st_val in ("LOCKED", "LOCK"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Không thể tự khóa tài khoản của chính bạn đang đăng nhập",
-        )
+    """Admin hoặc Staff khóa hoặc mở khóa tài khoản khách hàng."""
     return customer_service.update_customer_status(
         db=db,
         customer_id=id,
         new_status=payload.status,
     )
+
+
+@router.delete(
+    "/{id}",
+    summary="Xóa tài khoản khách hàng",
+    description=(
+        "Xóa tài khoản khách hàng khỏi hệ thống.\n"
+        "- Nếu khách hàng đã từng phát sinh đơn hàng, chuyển sang trạng thái LOCKED để bảo toàn dữ liệu lịch sử.\n"
+        "- Nếu chưa có đơn hàng, xóa vĩnh viễn khỏi hệ thống.\n"
+        "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`.\n"
+        "- **Mã lỗi**: `404 Not Found` nếu không tìm thấy khách hàng."
+    ),
+)
+def delete_customer(
+    id: int,
+    current_user: User = Depends(require_admin_or_staff),
+    db: Session = Depends(get_db),
+):
+    """Admin hoặc Staff xóa tài khoản khách hàng."""
+    return customer_service.delete_customer(db=db, customer_id=id)
