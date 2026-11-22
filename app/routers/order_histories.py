@@ -34,11 +34,7 @@ from app.service import order_status_histories as crud_order_histories
 from app.service import order as order_service
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
-
-reports_router = APIRouter(
-    prefix="/admin/reports/orders-count",
-    tags=["Admin Reports"],
-)
+report_router = APIRouter(prefix="/admin/reports", tags=["Reports"])
 
 VALID_TRANSITIONS = {
     "PENDING": ["CONFIRMED"],
@@ -483,8 +479,8 @@ def _normalize_status_key(raw_status) -> str:
     return status_map.get(s, s.upper())
 
 
-@reports_router.get(
-    "",
+@report_router.get(
+    "/orders-count",
     summary="Báo cáo bán hàng tổng hợp (FR-037..041)",
     description=(
         "Thống kê tổng số đơn, doanh thu (đơn DELIVERED/COMPLETED và bán tại quầy), "

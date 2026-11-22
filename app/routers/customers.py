@@ -151,3 +151,46 @@ def update_customer_status(
         customer_id=id,
         new_status=payload.status,
     )
+
+@router.get(
+    "/{id}/summary",
+    summary="Tổng hợp số đơn hàng và tổng chi tiêu của khách hàng (FR-032)",
+    description=(
+        "Trả về báo cáo tổng hợp nhanh về hoạt động mua hàng của khách hàng theo ID:\n"
+        "- `total_orders`: Tổng số đơn hàng đã đặt.\n"
+        "- `completed_orders`: Số đơn hàng ở trạng thái `COMPLETED`.\n"
+        "- `cancelled_orders`: Số đơn hàng ở trạng thái `CANCELLED`.\n"
+        "- `total_spent_completed`: Tổng chi tiêu tính trên các đơn `COMPLETED` (theo BR-11).\n"
+        "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`.\n"
+        "- **Mã lỗi**: `404 Not Found` nếu không tìm thấy khách hàng."
+    ),
+)
+def get_customer_spending_summary(
+    id: int,
+    current_user: User = Depends(require_admin_or_staff),
+    db: Session = Depends(get_db),
+):
+  """Lấy tổng số đơn hàng và tổng chi tiêu của khách hàng (FR-032)."""
+  detail = customer_service.get_customer_detail(db=db, customer_id=id)
+  if not detail:
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Không tìm thấy khách hàng với ID {id}",
+    )
+
+  if isinstance(detail, dict):
+    return {
+        "customer_id": id,
+        "total_orders": detail.get("total_orders", 0),
+        "completed_orders": detail.get("completed_orders", 0),
+        "cancelled_orders": detail.get("cancelled_orders", 0),
+        "total_spent": detail.get("total_spent", 0),
+    }
+
+  return {
+      "customer_id": id,
+      "total_orders": getattr(detail, "total_orders", 0),
+      "completed_orders": getattr(detail, "completed_orders", 0),
+      "cancelled_orders": getattr(detail, "cancelled_orders", 0),
+      "total_spent": getattr(detail, "total_spent", 0),
+  }

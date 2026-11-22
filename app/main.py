@@ -22,7 +22,7 @@ from app.routers import (
     order_histories,
     products,
 )
-
+from app.routers import order_histories
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -123,10 +123,10 @@ app.include_router(products.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
 app.include_router(cart.router, prefix="/api")
 app.include_router(order_histories.router, prefix="/api")
+app.include_router(order_histories.report_router, prefix="/api")
 app.include_router(customers.router, prefix="/api")
 app.include_router(inventory.router, prefix="/api")
 app.include_router(health.router, prefix="/api")
-
 
 @app.get("/")
 def root():

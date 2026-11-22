@@ -30,7 +30,7 @@ from app.schemas.stock_log import (
 from app.service import inventory as inventory_service
 from app.service.inventory import decrease_stock, increase_stock  # Re-export để các module khác có thể gọi
 
-router = APIRouter(prefix="/inventory", tags=["Inventory"])
+router = APIRouter(prefix="/admin/inventory", tags=["Inventory"])
 
 
 @router.get(
@@ -230,3 +230,25 @@ def get_product_stock_logs(
         page=page,
         page_size=page_size,
     )
+
+@router.get(
+    "/alerts",
+    response_model=LowStockAlertResponse,
+    summary="Danh sách sản phẩm sắp hết / hết hàng (FR-036)",
+    description=(
+        "Alias của endpoint cảnh báo tồn kho theo chuẩn đặc tả SRS (`GET /api/admin/inventory/alerts`).\n"
+        "- Trả về danh sách các sản phẩm có tồn kho <= ngưỡng cảnh báo (bao gồm cả sản phẩm hết hàng = 0 và sản phẩm đang ẩn).\n"
+        "- **Quyền hạn yêu cầu**: `ADMIN` hoặc `STAFF`."
+    ),
+)
+def get_inventory_alerts(
+    threshold: int = Query(
+        DEFAULT_LOW_STOCK_THRESHOLD,
+        ge=0,
+        description="Ngưỡng cảnh báo tồn kho (mặc định = 5)",
+    ),
+    current_user: User = Depends(require_admin_or_staff),
+    db: Session = Depends(get_db),
+):
+  """Lấy danh sách sản phẩm sắp hết hoặc đã hết hàng (FR-036)."""
+  return inventory_service.get_low_stock_alerts(db=db, threshold=threshold)
