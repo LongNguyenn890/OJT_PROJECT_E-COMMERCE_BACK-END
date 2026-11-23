@@ -9,7 +9,9 @@ Bao gồm:
 - products: Danh sách, phân loại và chi tiết sản phẩm công khai (FR-013 -> FR-015).
 - categories: Quản lý danh mục sản phẩm (FR-014 -> FR-017, quyền Admin/Staff thêm sửa xóa).
 - customers: Quản lý khách hàng, lịch sử mua hàng, thống kê chi tiêu (quyền Admin/Staff).
+- staff: Quản lý nhân viên nội bộ (dành riêng cho Admin).
+- reports: Báo cáo bán hàng, doanh thu (đơn DELIVERED & bán tại quầy), top 10 sản phẩm, doanh thu theo ngày (Admin/Staff).
 """
-from app.routers import auth, cart, health, inventory, order_histories, products, categories, customers, staff
+from app.routers import auth, cart, health, inventory, order_histories, products, categories, customers, staff, reports
 
-__all__ = ["auth", "cart", "health", "inventory", "order_histories", "products", "categories", "customers", "staff"]
+__all__ = ["auth", "cart", "health", "inventory", "order_histories", "products", "categories", "customers", "staff", "reports"]

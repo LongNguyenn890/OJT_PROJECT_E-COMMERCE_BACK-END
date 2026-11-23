@@ -200,18 +200,21 @@ def update_product(
         product.category_id = data.category_id
 
     # 4. Validate Giá gốc & Giá khuyến mãi
-    target_price = data.price if data.price is not None else product.price
+    # Ràng buộc nghiệp vụ: Giá gốc chỉ được điền 1 lần khi thêm sản phẩm, những lần sau không được sửa
+    if data.price is not None:
+        from decimal import Decimal
+        if abs(Decimal(str(data.price)) - Decimal(str(product.price))) > Decimal("0.001"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Giá gốc sản phẩm chỉ được điền 1 lần khi thêm sản phẩm và không được phép chỉnh sửa. Để nhập thêm hàng hoặc thay đổi số lượng tồn kho, vui lòng thực hiện qua nghiệp vụ Quản lý Kho hàng.",
+            )
+
+    target_price = product.price
     target_promo = (
         data.promotional_price
         if "promotional_price" in data.model_fields_set
         else product.promotional_price
     )
-
-    if data.price is not None and data.price <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Giá gốc sản phẩm phải lớn hơn 0",
-        )
 
     if target_promo is not None and target_promo < 0:
         raise HTTPException(
@@ -226,8 +229,7 @@ def update_product(
                 detail="Giá khuyến mãi phải nhỏ hơn giá gốc",
             )
 
-    if data.price is not None:
-        product.price = data.price
+    # Giá gốc cố định, chỉ cập nhật giá khuyến mãi nếu có gửi lên
     if "promotional_price" in data.model_fields_set:
         product.promotional_price = data.promotional_price
 

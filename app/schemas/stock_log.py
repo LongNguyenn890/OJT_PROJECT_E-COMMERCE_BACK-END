@@ -117,6 +117,8 @@ class InventoryItemResponse(BaseModel):
 
     product_id: int
     name: str
+    sku: str | None = None
+    image_url: str | None = None
     category_id: int
     category_name: str | None = None
     price: Decimal | float | int
