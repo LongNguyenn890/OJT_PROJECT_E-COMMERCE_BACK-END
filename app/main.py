@@ -82,6 +82,12 @@ async def lifespan(app: FastAPI):
                 if "sku" not in item_cols:
                     conn.execute(text("ALTER TABLE order_items ADD COLUMN sku VARCHAR(100) NULL"))
                     conn.commit()
+        if "product_reviews" in inspector.get_table_names():
+            review_cols = [c["name"] for c in inspector.get_columns("product_reviews")]
+            if "image_url" not in review_cols:
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE product_reviews ADD COLUMN image_url VARCHAR(255) NULL"))
+                    conn.commit()
         print(f"[DB] Đã kết nối MySQL {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}")
     except OperationalError as error:
         print("[DB] KHÔNG kết nối được MySQL! Kiểm tra MySQL đã bật chưa và file .env.")
