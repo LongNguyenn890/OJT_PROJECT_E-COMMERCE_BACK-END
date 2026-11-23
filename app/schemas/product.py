@@ -65,6 +65,8 @@ class PublicProductResponse(BaseModel):
     promotional_price: Decimal | None = None
     stock_quantity: int
     in_stock: bool
+    average_rating: float = 0
+    review_count: int = 0
     is_visible: int = 1
     created_at: datetime | None = None
     updated_at: datetime | None = None

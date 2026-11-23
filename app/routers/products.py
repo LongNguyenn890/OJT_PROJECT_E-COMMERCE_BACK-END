@@ -6,17 +6,26 @@ Tài liệu đặc tả liên quan:
 - FR-015: Xem chi tiết sản phẩm kèm danh sách ảnh và sản phẩm gợi ý cùng danh mục.
 - Public: Khách hàng vãng lai không cần đăng nhập vẫn có thể duyệt và xem thông tin sản phẩm.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
+from pathlib import Path
+from uuid import uuid4
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.dependencies.auth import require_admin_or_staff
+from app.dependencies.auth import require_admin_or_staff, require_customer
 from app.models.category import Category
 from app.models.product import Product
 from app.models.user import User
 from app.models.order import Order, OrderStatus
 from app.models.order_item import OrderItem
+from app.models.product_review import ProductReview
+from app.schemas.product_review import (
+    MyProductReviewResponse,
+    ProductReviewListResponse,
+    ProductReviewResponse,
+)
 from app.schemas.product import (
     ProductCreate,
     ProductUpdate,
@@ -32,11 +41,89 @@ from app.schemas.product_image import ProductImageResponse
 from app.service import product as product_service
 
 router = APIRouter(prefix="/products", tags=["Products"])
+REVIEW_UPLOAD_DIR = Path("uploads/reviews")
+REVIEW_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+ALLOWED_REVIEW_IMAGE_TYPES = {
+    ".jpg": {"image/jpeg", "image/jpg"},
+    ".jpeg": {"image/jpeg", "image/jpg"},
+    ".png": {"image/png"},
+    ".webp": {"image/webp"},
+}
+MAX_REVIEW_IMAGE_SIZE = 5 * 1024 * 1024
 
 
 def _active_products_query(db: Session):
     """Truy vấn cơ bản chỉ lọc các sản phẩm đang được bật hiển thị (is_visible = 1)."""
     return db.query(Product).filter(Product.is_visible == 1)
+
+
+def _review_stats(db: Session, products: list[Product]) -> dict[int, dict[str, float | int]]:
+    product_ids = [product.id for product in products]
+    if not product_ids:
+        return {}
+
+    rows = (
+        db.query(
+            ProductReview.product_id,
+            func.avg(ProductReview.rating).label("average_rating"),
+            func.count(ProductReview.id).label("review_count"),
+        )
+        .filter(ProductReview.product_id.in_(product_ids))
+        .group_by(ProductReview.product_id)
+        .all()
+    )
+    return {
+        row.product_id: {
+            "average_rating": round(float(row.average_rating or 0), 1),
+            "review_count": int(row.review_count or 0),
+        }
+        for row in rows
+    }
+
+
+def _public_product_data(db: Session, products: list[Product]) -> list[dict]:
+    stats = _review_stats(db, products)
+    return [
+        {
+            **PublicProductResponse.model_validate(product).model_dump(),
+            **stats.get(product.id, {"average_rating": 0, "review_count": 0}),
+        }
+        for product in products
+    ]
+
+
+def _is_delivered(order: Order) -> bool:
+    status_value = getattr(order.status, "name", None) or getattr(order.status, "value", order.status)
+    return str(status_value).strip().upper() in {"COMPLETED", "DELIVERED"}
+
+
+def _eligible_order(db: Session, product_id: int, user_id: int) -> Order | None:
+    orders = (
+        db.query(Order)
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .filter(Order.user_id == user_id, OrderItem.product_id == product_id)
+        .all()
+    )
+    return next((order for order in orders if _is_delivered(order)), None)
+
+
+def _review_response(review: ProductReview) -> dict:
+    return {
+        "id": review.id,
+        "rating": review.rating,
+        "comment": review.comment,
+        "image_url": review.image_url,
+        "created_at": review.created_at,
+        "customer_name": review.user.full_name,
+    }
+
+
+def _remove_review_image(path: Path | None) -> None:
+    if path and path.is_file():
+        try:
+            path.unlink()
+        except OSError:
+            pass
 
 
 @router.get(
@@ -113,7 +200,12 @@ def list_products(
     query = query.options(selectinload(Product.category), selectinload(Product.product_images))
     total = query.count()
     products = query.offset((page - 1) * page_size).limit(page_size).all()
-    return {"total": total, "page": page, "page_size": page_size, "items": products}
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": _public_product_data(db, products),
+    }
 
 
 @router.get(
@@ -150,7 +242,12 @@ def list_products_by_category(
         .limit(page_size)
         .all()
     )
-    return {"total": total, "page": page, "page_size": page_size, "items": products}
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": _public_product_data(db, products),
+    }
 
 
 @router.get(
@@ -185,9 +282,179 @@ def get_product_detail(product_id: int, db: Session = Depends(get_db)):
         .limit(8)
         .all()
     )
-    product_data = PublicProductResponse.model_validate(product).model_dump()
-    product_data["related_products"] = related_products
+    product_data = _public_product_data(db, [product])[0]
+    product_data["related_products"] = _public_product_data(db, related_products)
     return product_data
+
+
+@router.get(
+    "/{product_id}/reviews",
+    response_model=ProductReviewListResponse,
+    summary="Xem điểm trung bình và đánh giá sản phẩm",
+)
+def list_product_reviews(
+    product_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    if not _active_products_query(db).filter(Product.id == product_id).first():
+        raise HTTPException(status_code=404, detail="Sản phẩm không tồn tại hoặc đã bị ẩn")
+
+    aggregate = db.query(
+        func.avg(ProductReview.rating).label("average_rating"),
+        func.count(ProductReview.id).label("review_count"),
+    ).filter(ProductReview.product_id == product_id).first()
+    distribution_rows = (
+        db.query(ProductReview.rating, func.count(ProductReview.id))
+        .filter(ProductReview.product_id == product_id)
+        .group_by(ProductReview.rating)
+        .all()
+    )
+    distribution = {rating: 0 for rating in range(1, 6)}
+    distribution.update({int(rating): int(count) for rating, count in distribution_rows})
+    reviews = (
+        db.query(ProductReview)
+        .options(selectinload(ProductReview.user))
+        .filter(ProductReview.product_id == product_id)
+        .order_by(ProductReview.created_at.desc(), ProductReview.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return {
+        "average_rating": round(float(aggregate.average_rating or 0), 1),
+        "review_count": int(aggregate.review_count or 0),
+        "rating_distribution": distribution,
+        "items": [_review_response(review) for review in reviews],
+    }
+
+
+@router.get(
+    "/{product_id}/reviews/mine",
+    response_model=MyProductReviewResponse,
+    summary="Kiểm tra quyền đánh giá của khách hàng cho sản phẩm",
+)
+def get_my_product_review(
+    product_id: int,
+    current_user: User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    if not _active_products_query(db).filter(Product.id == product_id).first():
+        raise HTTPException(status_code=404, detail="Sản phẩm không tồn tại hoặc đã bị ẩn")
+
+    review = (
+        db.query(ProductReview)
+        .options(selectinload(ProductReview.user))
+        .filter(ProductReview.product_id == product_id, ProductReview.user_id == current_user.id)
+        .first()
+    )
+    return {
+        "eligible": _eligible_order(db, product_id, current_user.id) is not None,
+        "review": _review_response(review) if review else None,
+    }
+
+
+@router.delete(
+    "/{product_id}/reviews/mine",
+    summary="Xóa đánh giá của khách hàng hiện tại",
+)
+def delete_my_product_review(
+    product_id: int,
+    current_user: User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    review = (
+        db.query(ProductReview)
+        .filter(ProductReview.product_id == product_id, ProductReview.user_id == current_user.id)
+        .first()
+    )
+    if review is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đánh giá của bạn cho sản phẩm này")
+
+    image_path = None
+    if review.image_url and review.image_url.startswith("/uploads/reviews/"):
+        image_path = Path(".") / review.image_url.lstrip("/")
+    db.delete(review)
+    db.commit()
+    _remove_review_image(image_path)
+    return {"message": "Đã xóa đánh giá sản phẩm"}
+
+
+@router.post(
+    "/{product_id}/reviews",
+    response_model=ProductReviewResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Đánh giá sản phẩm đã giao thành công",
+)
+def create_product_review(
+    product_id: int,
+    rating: int = Form(..., ge=1, le=5),
+    comment: str = Form(..., min_length=1, max_length=1000),
+    image: UploadFile | None = File(None, description="Ảnh đánh giá tùy chọn (JPG, PNG hoặc WEBP, tối đa 5MB)"),
+    current_user: User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    product = _active_products_query(db).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Sản phẩm không tồn tại hoặc đã bị ẩn")
+
+    order = _eligible_order(db, product_id, current_user.id)
+    if order is None:
+        raise HTTPException(status_code=403, detail="Bạn chỉ có thể đánh giá sản phẩm trong đơn hàng đã giao thành công")
+
+    existing = db.query(ProductReview.id).filter(
+        ProductReview.product_id == product_id,
+        ProductReview.user_id == current_user.id,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Bạn đã đánh giá sản phẩm này rồi")
+
+    normalized_comment = comment.strip()
+    if not normalized_comment:
+        raise HTTPException(status_code=422, detail="Vui lòng nhập nhận xét")
+
+    image_url = None
+    saved_image_path = None
+    if image and image.filename:
+        extension = Path(image.filename).suffix.lower()
+        allowed_types = ALLOWED_REVIEW_IMAGE_TYPES.get(extension)
+        if not allowed_types or (image.content_type and image.content_type.lower() not in allowed_types):
+            raise HTTPException(status_code=400, detail="Ảnh đánh giá phải có định dạng JPG, PNG hoặc WEBP")
+
+        image_content = image.file.read(MAX_REVIEW_IMAGE_SIZE + 1)
+        if len(image_content) > MAX_REVIEW_IMAGE_SIZE:
+            raise HTTPException(status_code=400, detail="Ảnh đánh giá không được vượt quá 5MB")
+        if not image_content:
+            raise HTTPException(status_code=400, detail="Ảnh đánh giá không hợp lệ")
+
+        file_name = f"{uuid4().hex}{extension}"
+        saved_image_path = REVIEW_UPLOAD_DIR / file_name
+        saved_image_path.write_bytes(image_content)
+        image_url = f"/uploads/reviews/{file_name}"
+
+    review = ProductReview(
+        product_id=product_id,
+        user_id=current_user.id,
+        order_id=order.id,
+        rating=rating,
+        comment=normalized_comment,
+        image_url=image_url,
+    )
+    db.add(review)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        _remove_review_image(saved_image_path)
+        raise HTTPException(status_code=409, detail="Bạn đã đánh giá sản phẩm này rồi")
+    except Exception:
+        db.rollback()
+        _remove_review_image(saved_image_path)
+        raise
+    db.refresh(review)
+    review.user = current_user
+    return _review_response(review)
 
 
 # ==============================================================================
