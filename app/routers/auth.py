@@ -20,6 +20,7 @@ from app.schemas import (
     UserResponse,
     TokenResponse,
     UserUpdate,
+    ChangePasswordRequest,
     AvatarResponse,
     AddressCreate,
     AddressUpdate,
@@ -135,6 +136,64 @@ def update_profile(
 ):
     """Cập nhật thông tin tài khoản của người dùng hiện tại."""
     return update_user_profile(db=db, user=current_user, data=payload)
+
+
+@router.put(
+    "/me/change-password",
+    response_model=UserResponse,
+    summary="Đổi mật khẩu tài khoản cá nhân",
+    description=(
+        "Đổi mật khẩu tài khoản người dùng đang đăng nhập.\n"
+        "- **Bắt buộc**: Phải nhập chính xác mật khẩu hiện tại.\n"
+        "- **Quy tắc**: Mật khẩu không được chứa khoảng trắng, tối thiểu 6 ký tự, không trùng mật khẩu cũ.\n"
+        "- **Mã lỗi**: `400 Bad Request` nếu sai mật khẩu hiện tại hoặc không hợp lệ."
+    ),
+)
+def change_password_endpoint(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Đổi mật khẩu có xác thực mật khẩu hiện tại và kiểm tra khoảng trắng."""
+    from app.core.security import verify_password, hash_password
+
+    current_pwd = payload.current_password
+    new_pwd = payload.new_password
+
+    if not current_pwd or any(c.isspace() for c in current_pwd):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu hiện tại không được chứa khoảng trắng",
+        )
+
+    if not new_pwd or any(c.isspace() for c in new_pwd):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu mới không được chứa khoảng trắng",
+        )
+
+    if len(new_pwd.strip()) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu mới phải có ít nhất 6 ký tự",
+        )
+
+    if not verify_password(current_pwd, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu hiện tại không chính xác",
+        )
+
+    if current_pwd == new_pwd:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu mới không được trùng với mật khẩu hiện tại",
+        )
+
+    current_user.password_hash = hash_password(new_pwd)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 
 @router.post(
@@ -384,33 +443,140 @@ def set_default_address(
 # CÁC API QUẢN LÝ ĐIỂM THƯỞNG & QUY ĐỔI MÃ GIẢM GIÁ (VOUCHERS)
 # ==========================================================
 AVAILABLE_VOUCHER_TIERS = [
+    # ---- 1. Nhóm Freeship (Miễn phí vận chuyển) ----
+    {
+        "tier_id": "FREESHIP_15K",
+        "title": "FreeShip - Giảm 15.000₫ phí ship",
+        "voucher_type": "freeship",
+        "points_required": 50,
+        "discount_amount": 15000,
+        "min_order_value": 100000,
+        "percent": 0,
+        "max_discount": 15000,
+    },
+    {
+        "tier_id": "FREESHIP_MAX",
+        "title": "FreeShip Xtra - Miễn phí vận chuyển 100% (tối đa 30.000₫)",
+        "voucher_type": "freeship",
+        "points_required": 100,
+        "discount_amount": 30000,
+        "min_order_value": 150000,
+        "percent": 0,
+        "max_discount": 30000,
+    },
+
+    # ---- 2. Nhóm Giảm theo % (To nhất lên đến 70%) ----
+    {
+        "tier_id": "VOUCHER_PCT_10",
+        "title": "Giảm 10% (tối đa 50.000₫)",
+        "voucher_type": "percent",
+        "percent": 10,
+        "max_discount": 50000,
+        "points_required": 120,
+        "discount_amount": 0,
+        "min_order_value": 200000,
+    },
+    {
+        "tier_id": "VOUCHER_PCT_20",
+        "title": "Giảm 20% (tối đa 100.000₫)",
+        "voucher_type": "percent",
+        "percent": 20,
+        "max_discount": 100000,
+        "points_required": 220,
+        "discount_amount": 0,
+        "min_order_value": 300000,
+    },
+    {
+        "tier_id": "VOUCHER_PCT_30",
+        "title": "Giảm 30% (tối đa 200.000₫)",
+        "voucher_type": "percent",
+        "percent": 30,
+        "max_discount": 200000,
+        "points_required": 350,
+        "discount_amount": 0,
+        "min_order_value": 500000,
+    },
+    {
+        "tier_id": "VOUCHER_PCT_50",
+        "title": "Giảm 50% Siêu Sale (tối đa 500.000₫)",
+        "voucher_type": "percent",
+        "percent": 50,
+        "max_discount": 500000,
+        "points_required": 650,
+        "discount_amount": 0,
+        "min_order_value": 800000,
+    },
+    {
+        "tier_id": "VOUCHER_PCT_70",
+        "title": "Giảm 70% Khủng Nhất (tối đa 1.000.000₫)",
+        "voucher_type": "percent",
+        "percent": 70,
+        "max_discount": 1000000,
+        "points_required": 1200,
+        "discount_amount": 0,
+        "min_order_value": 1200000,
+    },
+
+    # ---- 3. Nhóm Giảm tiền mặt cố định (To nhất là 1.000.000₫) ----
     {
         "tier_id": "VOUCHER_20K",
         "title": "Voucher giảm 20.000₫",
-        "points_required": 100,
+        "voucher_type": "fixed",
+        "points_required": 80,
         "discount_amount": 20000,
         "min_order_value": 100000,
+        "percent": 0,
+        "max_discount": 20000,
     },
     {
         "tier_id": "VOUCHER_50K",
         "title": "Voucher giảm 50.000₫",
-        "points_required": 200,
+        "voucher_type": "fixed",
+        "points_required": 160,
         "discount_amount": 50000,
         "min_order_value": 250000,
+        "percent": 0,
+        "max_discount": 50000,
     },
     {
         "tier_id": "VOUCHER_100K",
         "title": "Voucher giảm 100.000₫",
-        "points_required": 350,
+        "voucher_type": "fixed",
+        "points_required": 280,
         "discount_amount": 100000,
         "min_order_value": 500000,
+        "percent": 0,
+        "max_discount": 10000,
     },
     {
-        "tier_id": "VOUCHER_150K",
-        "title": "Voucher giảm 150.000₫",
-        "points_required": 500,
-        "discount_amount": 150000,
-        "min_order_value": 700000,
+        "tier_id": "VOUCHER_200K",
+        "title": "Voucher giảm 200.000₫",
+        "voucher_type": "fixed",
+        "points_required": 480,
+        "discount_amount": 200000,
+        "min_order_value": 800000,
+        "percent": 0,
+        "max_discount": 200000,
+    },
+    {
+        "tier_id": "VOUCHER_500K",
+        "title": "Voucher giảm 500.000₫ Siêu Ưu Đãi",
+        "voucher_type": "fixed",
+        "points_required": 950,
+        "discount_amount": 500000,
+        "min_order_value": 1500000,
+        "percent": 0,
+        "max_discount": 500000,
+    },
+    {
+        "tier_id": "VOUCHER_1M",
+        "title": "Voucher giảm 1.000.000₫ Siêu VIP",
+        "voucher_type": "fixed",
+        "points_required": 1600,
+        "discount_amount": 1000000,
+        "min_order_value": 2500000,
+        "percent": 0,
+        "max_discount": 1000000,
     },
 ]
 
@@ -473,10 +639,19 @@ def redeem_voucher(
     # Trừ điểm thưởng của tài khoản
     current_user.reward_points = current_points - required_points
 
-    # Sinh mã voucher ngẫu nhiên độc nhất
+    # Sinh mã voucher ngẫu nhiên độc nhất theo loại
     code_suffix = uuid.uuid4().hex[:6].upper()
-    discount_k = tier["discount_amount"] // 1000
-    voucher_code = f"SE{discount_k}K-{code_suffix}"
+    vtype = tier.get("voucher_type", "fixed")
+    if vtype == "freeship":
+        voucher_code = f"SEFREE-{code_suffix}"
+    elif vtype == "percent":
+        voucher_code = f"SEP{tier.get('percent', 0)}-{code_suffix}"
+    else:
+        discount_k = tier["discount_amount"] // 1000
+        if discount_k >= 1000:
+            voucher_code = f"SE1M-{code_suffix}"
+        else:
+            voucher_code = f"SE{discount_k}K-{code_suffix}"
 
     # Hạn sử dụng: 30 ngày kể từ lúc quy đổi
     expires_at = datetime.now() + timedelta(days=30)
@@ -484,9 +659,12 @@ def redeem_voucher(
     new_voucher = Voucher(
         code=voucher_code,
         title=tier["title"],
-        discount_amount=tier["discount_amount"],
-        min_order_value=tier["min_order_value"],
+        discount_amount=tier.get("discount_amount", 0),
+        min_order_value=tier.get("min_order_value", 0),
         points_spent=required_points,
+        voucher_type=vtype,
+        percent=tier.get("percent", 0),
+        max_discount=tier.get("max_discount", 0),
         user_id=current_user.id,
         is_used=0,
         expires_at=expires_at,
