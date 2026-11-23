@@ -7,7 +7,7 @@ Tài liệu đặc tả liên quan:
 from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
 from datetime import date, datetime
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, cast, String
 
 from app.models.order import Order, OrderStatus
 from app.models.order_item import OrderItem
@@ -236,19 +236,39 @@ def get_all_orders_admin(
     query = db.query(Order)
     # Lọc theo trạng thái
     if status:
-        query = query.filter(Order.status == status)
+        st_clean = str(status).strip().upper()
+        candidates = [status, st_clean]
+        if hasattr(OrderStatus, st_clean):
+            member = getattr(OrderStatus, st_clean)
+            candidates.extend([member, member.value])
+        if st_clean in ("COMPLETED", "DELIVERED"):
+            candidates.extend(["Hoàn thành", "Đã giao", "DELIVERED", "COMPLETED", OrderStatus.COMPLETED])
+        elif st_clean == "PENDING":
+            candidates.extend(["Chờ xác nhận", OrderStatus.PENDING])
+        elif st_clean == "CONFIRMED":
+            candidates.extend(["Đã xác nhận", OrderStatus.CONFIRMED])
+        elif st_clean == "SHIPPING":
+            candidates.extend(["Đang giao", "Đang giao hàng", OrderStatus.SHIPPING])
+        elif st_clean == "CANCELLED":
+            candidates.extend(["Hủy", "Đã hủy", OrderStatus.CANCELLED])
+        query = query.filter(Order.status.in_(list(set(candidates))))
     # Lọc theo khoảng ngày tạo đơn
     if from_date:
         query = query.filter(func.date(Order.created_at) >= from_date)
     if to_date:
         query = query.filter(func.date(Order.created_at) <= to_date)
-    # Tìm kiếm theo mã đơn hoặc số điện thoại
+    # Tìm kiếm theo mã đơn, số điện thoại, tên người nhận hoặc ID
     if keyword:
-        kw = f"%{keyword.strip()}%"
+        cleaned_kw = str(keyword).strip()
+        if cleaned_kw.startswith("#"):
+            cleaned_kw = cleaned_kw[1:].strip()
+        kw = f"%{cleaned_kw}%"
         query = query.filter(
             or_(
                 Order.order_code.like(kw),
                 Order.receiver_phone.like(kw),
+                Order.receiver_name.like(kw),
+                cast(Order.id, String).like(kw),
             )
         )
     total = query.count()
