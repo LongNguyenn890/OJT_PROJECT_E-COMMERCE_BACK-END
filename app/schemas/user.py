@@ -44,7 +44,13 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = Field(default=None)
     phone: Optional[str] = Field(default=None, min_length=10, max_length=15)
     avatar: Optional[str] = Field(default=None, description="Đường dẫn hoặc URL ảnh đại diện")
-    password: Optional[str] = Field(default=None, min_length=6)
+    current_password: Optional[str] = Field(default=None, description="Mật khẩu hiện tại (bắt buộc khi đổi mật khẩu)")
+    password: Optional[str] = Field(default=None, min_length=6, description="Mật khẩu mới")
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1, description="Mật khẩu hiện tại")
+    new_password: str = Field(..., min_length=6, description="Mật khẩu mới")
 
 
 class UserStatusUpdate(BaseModel):

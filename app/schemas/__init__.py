@@ -38,6 +38,7 @@ from app.schemas.user import (
     UserResponse,
     UserStatusUpdate,
     UserUpdate,
+    ChangePasswordRequest,
     AvatarResponse,
 )
 from app.schemas.address import (

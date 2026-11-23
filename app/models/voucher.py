@@ -17,9 +17,12 @@ class Voucher(Base):
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
     code = Column(String(50), unique=True, nullable=False, index=True)
     title = Column(String(100), nullable=False)
-    discount_amount = Column(BigInteger, nullable=False)
+    discount_amount = Column(BigInteger, nullable=False, default=0)
     min_order_value = Column(BigInteger, nullable=False, default=0)
     points_spent = Column(Integer, nullable=False, default=0)
+    voucher_type = Column(String(20), nullable=False, default="fixed")  # 'fixed', 'percent', 'freeship'
+    percent = Column(Integer, nullable=True, default=0)
+    max_discount = Column(BigInteger, nullable=True, default=0)
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     is_used = Column(SmallInteger, nullable=False, default=0)
     expires_at = Column(DateTime, nullable=True)

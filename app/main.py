@@ -3,6 +3,15 @@
 Chạy:  uvicorn app.main:app --reload
 Tài liệu API tự sinh: http://127.0.0.1:8000/docs
 """
+import sys
+from pathlib import Path
+
+# Đảm bảo môi trường .venv luôn được ưu tiên nạp khi người dùng chạy uvicorn từ Python toàn cục
+_BASE_DIR = Path(__file__).resolve().parent.parent
+_VENV_PACKAGES = _BASE_DIR / ".venv" / "Lib" / "site-packages"
+if _VENV_PACKAGES.exists() and str(_VENV_PACKAGES) not in sys.path:
+    sys.path.insert(0, str(_VENV_PACKAGES))
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -51,6 +60,18 @@ async def lifespan(app: FastAPI):
                     conn.commit()
                 if "reward_points" not in user_columns:
                     conn.execute(text("ALTER TABLE users ADD COLUMN reward_points INT NOT NULL DEFAULT 0"))
+                    conn.commit()
+        if "vouchers" in inspector.get_table_names():
+            voucher_cols = [c["name"] for c in inspector.get_columns("vouchers")]
+            with engine.connect() as conn:
+                if "voucher_type" not in voucher_cols:
+                    conn.execute(text("ALTER TABLE vouchers ADD COLUMN voucher_type VARCHAR(20) NOT NULL DEFAULT 'fixed'"))
+                    conn.commit()
+                if "percent" not in voucher_cols:
+                    conn.execute(text("ALTER TABLE vouchers ADD COLUMN percent INT NULL DEFAULT 0"))
+                    conn.commit()
+                if "max_discount" not in voucher_cols:
+                    conn.execute(text("ALTER TABLE vouchers ADD COLUMN max_discount BIGINT NULL DEFAULT 0"))
                     conn.commit()
         if "orders" in inspector.get_table_names():
             order_cols = [c["name"] for c in inspector.get_columns("orders")]

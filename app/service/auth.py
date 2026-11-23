@@ -13,6 +13,12 @@ AVATAR_DIR = Path("uploads/avatars")
 AVATAR_DIR.mkdir(parents=True, exist_ok=True)
 
 def create_user(db: Session, user: UserCreate):
+    if any(c.isspace() for c in user.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu không được chứa khoảng trắng",
+        )
+
     existing_email = db.query(User).filter(User.email == user.email).first()
     
     if existing_email:
@@ -162,12 +168,46 @@ def update_user_profile(db: Session, user: User, data: UserUpdate) -> User:
         user.avatar = avatar_val if avatar_val else None
 
     if data.password is not None:
-        if len(data.password) < 6:
+        new_pwd = data.password
+        if any(c.isspace() for c in new_pwd):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Mật khẩu phải có ít nhất 6 ký tự",
+                detail="Mật khẩu mới không được chứa khoảng trắng",
             )
-        user.password_hash = hash_password(data.password)
+        if len(new_pwd.strip()) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mật khẩu mới phải có ít nhất 6 ký tự",
+            )
+
+        # Bắt buộc phải có mật khẩu hiện tại để xác thực
+        current_pwd = getattr(data, "current_password", None)
+        if not current_pwd or not current_pwd.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Vui lòng nhập mật khẩu hiện tại để xác thực đổi mật khẩu",
+            )
+
+        if any(c.isspace() for c in current_pwd):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mật khẩu hiện tại không được chứa khoảng trắng",
+            )
+
+        from app.core.security import verify_password
+        if not verify_password(current_pwd, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mật khẩu hiện tại không chính xác",
+            )
+
+        if current_pwd == new_pwd:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mật khẩu mới không được trùng với mật khẩu hiện tại",
+            )
+
+        user.password_hash = hash_password(new_pwd)
 
     db.commit()
     db.refresh(user)

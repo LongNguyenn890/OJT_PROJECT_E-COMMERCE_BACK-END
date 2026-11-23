@@ -125,7 +125,19 @@ def create_order(
             )
         )
         if voucher_db and subtotal_amount >= int(voucher_db.min_order_value or 0):
-            discount_amount = int(voucher_db.discount_amount)
+            vtype = str(getattr(voucher_db, "voucher_type", "fixed") or "fixed").lower()
+            if vtype == "freeship":
+                discount_amount = min(shipping_fee, int(voucher_db.discount_amount or 30000))
+            elif vtype == "percent":
+                pct = int(getattr(voucher_db, "percent", 0) or 0)
+                max_d = int(getattr(voucher_db, "max_discount", 0) or 0)
+                pct_discount = int(subtotal_amount * pct / 100)
+                if max_d > 0:
+                    pct_discount = min(pct_discount, max_d)
+                discount_amount = pct_discount
+            else:
+                discount_amount = min(subtotal_amount, int(voucher_db.discount_amount or 0))
+
             voucher_applied_code = vcode
             applied_voucher_obj = voucher_db
 
