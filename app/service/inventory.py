@@ -187,10 +187,16 @@ def get_inventory_list(
     Returns:
         Dictionary chứa danh sách sản phẩm phân trang và thống kê số lượng cảnh báo.
     """
-    query = db.query(Product).options(joinedload(Product.category))
+    query = db.query(Product).options(
+        joinedload(Product.category),
+        joinedload(Product.product_images),
+    )
 
     if keyword and keyword.strip():
-        query = query.filter(Product.name.ilike(f"%{keyword.strip()}%"))
+        kw = keyword.strip()
+        query = query.filter(
+            (Product.name.ilike(f"%{kw}%")) | (Product.sku.ilike(f"%{kw}%"))
+        )
 
     if category_id is not None:
         query = query.filter(Product.category_id == category_id)
@@ -227,9 +233,20 @@ def get_inventory_list(
 
         category_name = p.category.name if p.category else None
 
+        img_url = None
+        if p.product_images:
+            for img in p.product_images:
+                if img.is_primary:
+                    img_url = img.image_url
+                    break
+            if not img_url and p.product_images:
+                img_url = p.product_images[0].image_url
+
         items.append({
             "product_id": p.id,
             "name": p.name,
+            "sku": p.sku or f"SP-{p.id}",
+            "image_url": img_url,
             "category_id": p.category_id,
             "category_name": category_name,
             "price": p.price,

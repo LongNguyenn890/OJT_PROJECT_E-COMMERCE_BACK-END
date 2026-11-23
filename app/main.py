@@ -22,6 +22,7 @@ from app.routers import (
     order_histories,
     products,
     staff,
+    reports,
 )
 
 
@@ -124,6 +125,10 @@ tags_metadata = [
         "description": "Quản lý kho hàng: theo dõi tồn kho, cảnh báo sắp hết hàng, nhập hàng, kiểm kê và nhật ký biến động kho.",
     },
     {
+        "name": "Reports",
+        "description": "Báo cáo bán hàng, doanh thu (DELIVERED & bán tại quầy), số sản phẩm đã bán, top 10 bán chạy và doanh thu theo ngày (Admin/Staff).",
+    },
+    {
         "name": "Health",
         "description": "Kiểm tra tình trạng hoạt động của hệ thống backend và kết nối MySQL Database.",
     },
@@ -164,6 +169,7 @@ app.include_router(order_histories.router, prefix="/api")
 app.include_router(customers.router, prefix="/api")
 app.include_router(staff.router, prefix="/api")
 app.include_router(inventory.router, prefix="/api")
+app.include_router(reports.router, prefix="/api")
 app.include_router(health.router, prefix="/api")
 
 from fastapi import WebSocket, WebSocketDisconnect
