@@ -24,7 +24,10 @@ from app.models.cart_item import CartItem
 from app.schemas.product import ProductCreate, ProductUpdate
 
 UPLOAD_DIR = Path("uploads/products")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png"}
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB

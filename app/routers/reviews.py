@@ -37,7 +37,10 @@ from app.service import review as review_service
 router = APIRouter(tags=["Reviews & Comments"])
 
 UPLOAD_DIR = Path("uploads/reviews")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 

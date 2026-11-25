@@ -10,7 +10,10 @@ from app.core.config import settings
 ALLOWED_AVATAR_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_AVATAR_SIZE = 100 * 1024 * 1024  # 100MB
 AVATAR_DIR = Path("uploads/avatars")
-AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 
 def create_user(db: Session, user: UserCreate):
     if any(c.isspace() for c in user.password):
