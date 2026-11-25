@@ -102,6 +102,27 @@ def update_cart_item(
 
 
 @router.delete(
+    "/items",
+    status_code=status.HTTP_200_OK,
+    summary="Xóa toàn bộ sản phẩm khỏi giỏ hàng",
+    description=(
+        "Xóa sạch toàn bộ sản phẩm có trong giỏ hàng của khách hàng hiện tại.\n"
+        "- **Quyền hạn**: Chỉ dành cho `CUSTOMER`."
+    ),
+)
+def clear_all_cart_items(
+    current_user: User = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
+    """Xóa tất cả sản phẩm khỏi giỏ hàng."""
+    cart_service.clear_cart(
+        db=db,
+        user_id=current_user.id,
+    )
+    return {"message": "Đã xoá toàn bộ sản phẩm khỏi giỏ hàng thành công"}
+
+
+@router.delete(
     "/items/{product_id}",
     status_code=status.HTTP_200_OK,
     summary="Xóa sản phẩm khỏi giỏ hàng (FR-020)",

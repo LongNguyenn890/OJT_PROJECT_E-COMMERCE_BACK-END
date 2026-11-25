@@ -189,3 +189,15 @@ def delete_cart_item(db: Session, user_id: int, product_id: int) -> None:
 
     db.delete(cart_item)
     db.commit()
+
+
+def clear_cart(db: Session, user_id: int) -> None:
+    """
+    Xóa toàn bộ sản phẩm khỏi giỏ hàng của user.
+    """
+    cart = get_or_create_cart(db, user_id)
+    items = db.scalars(select(CartItem).where(CartItem.cart_id == cart.id)).all()
+    for item in items:
+        db.delete(item)
+    db.commit()
+

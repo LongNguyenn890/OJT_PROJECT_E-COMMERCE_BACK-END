@@ -32,6 +32,7 @@ from app.routers import (
     products,
     staff,
     reports,
+    reviews,
 )
 
 
@@ -103,6 +104,18 @@ async def lifespan(app: FastAPI):
                 if "sku" not in item_cols:
                     conn.execute(text("ALTER TABLE order_items ADD COLUMN sku VARCHAR(100) NULL"))
                     conn.commit()
+        if "product_reviews" in inspector.get_table_names():
+            pr_cols = [c["name"] for c in inspector.get_columns("product_reviews")]
+            with engine.connect() as conn:
+                if "is_hidden" not in pr_cols:
+                    conn.execute(text("ALTER TABLE product_reviews ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT FALSE"))
+                    conn.commit()
+        if "review_replies" in inspector.get_table_names():
+            rr_cols = [c["name"] for c in inspector.get_columns("review_replies")]
+            with engine.connect() as conn:
+                if "is_hidden" not in rr_cols:
+                    conn.execute(text("ALTER TABLE review_replies ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT FALSE"))
+                    conn.commit()
         print(f"[DB] Đã kết nối MySQL {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}")
     except OperationalError as error:
         print("[DB] KHÔNG kết nối được MySQL! Kiểm tra MySQL đã bật chưa và file .env.")
@@ -150,6 +163,10 @@ tags_metadata = [
         "description": "Báo cáo bán hàng, doanh thu (DELIVERED & bán tại quầy), số sản phẩm đã bán, top 10 bán chạy và doanh thu theo ngày (Admin/Staff).",
     },
     {
+        "name": "Reviews & Comments",
+        "description": "Đánh giá và bình luận sản phẩm, phản hồi bình luận, số sao và số sao trung bình của sản phẩm.",
+    },
+    {
         "name": "Health",
         "description": "Kiểm tra tình trạng hoạt động của hệ thống backend và kết nối MySQL Database.",
     },
@@ -179,6 +196,7 @@ UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 (UPLOAD_DIR / "avatars").mkdir(parents=True, exist_ok=True)
 (UPLOAD_DIR / "products").mkdir(parents=True, exist_ok=True)
+(UPLOAD_DIR / "reviews").mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Mọi API đều bắt đầu bằng /api. Sắp xếp router theo luồng nghiệp vụ chuẩn:
@@ -191,6 +209,7 @@ app.include_router(customers.router, prefix="/api")
 app.include_router(staff.router, prefix="/api")
 app.include_router(inventory.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(reviews.router, prefix="/api")
 app.include_router(health.router, prefix="/api")
 
 from fastapi import WebSocket, WebSocketDisconnect

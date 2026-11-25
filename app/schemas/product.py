@@ -15,6 +15,8 @@ class ProductBase(BaseModel):
     promotional_price: Decimal | None = Field(default=None, examples=[27990000], description="Giá khuyến mãi (< giá gốc)")
     stock_quantity: int = Field(default=0, ge=0, examples=[50], description="Số lượng tồn kho")
     is_visible: int = Field(default=1, ge=0, le=1, description="1: Hiển thị, 0: Ẩn")
+    average_rating: float = Field(default=0.0, description="Điểm đánh giá trung bình (1.0 - 5.0 sao)")
+    review_count: int = Field(default=0, description="Tổng số lượt đánh giá của sản phẩm")
 
 
 class ProductCreate(BaseModel):
@@ -47,6 +49,8 @@ class ProductResponse(ProductBase):
     id: int
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    average_rating: float = 0.0
+    review_count: int = 0
     category: CategoryResponse | None = None
     product_images: list[ProductImageResponse] = []
 
@@ -68,6 +72,8 @@ class PublicProductResponse(BaseModel):
     is_visible: int = 1
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    average_rating: float = 0.0
+    review_count: int = 0
     category: CategoryResponse | None = None
     product_images: list[ProductImageResponse] = []
 

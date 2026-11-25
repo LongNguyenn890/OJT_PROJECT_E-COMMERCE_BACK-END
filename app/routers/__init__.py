@@ -11,7 +11,8 @@ Bao gồm:
 - customers: Quản lý khách hàng, lịch sử mua hàng, thống kê chi tiêu (quyền Admin/Staff).
 - staff: Quản lý nhân viên nội bộ (dành riêng cho Admin).
 - reports: Báo cáo bán hàng, doanh thu (đơn DELIVERED & bán tại quầy), top 10 sản phẩm, doanh thu theo ngày (Admin/Staff).
+- reviews: Đánh giá & bình luận sản phẩm có số sao, phản hồi bình luận, số sao trung bình.
 """
-from app.routers import auth, cart, health, inventory, order_histories, products, categories, customers, staff, reports
+from app.routers import auth, cart, health, inventory, order_histories, products, categories, customers, staff, reports, reviews
 
-__all__ = ["auth", "cart", "health", "inventory", "order_histories", "products", "categories", "customers", "staff", "reports"]
+__all__ = ["auth", "cart", "health", "inventory", "order_histories", "products", "categories", "customers", "staff", "reports", "reviews"]

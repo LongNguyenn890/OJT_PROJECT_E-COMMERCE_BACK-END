@@ -60,7 +60,7 @@ def list_products(
     max_price: float | None = Query(None, ge=0, description="Maximum price"),
     in_stock: bool | None = Query(None, description="true: còn hàng, false: hết hàng"),
     is_visible: int | None = Query(None, description="1: Hiển thị, 0: Ẩn, -1: Tất cả trạng thái"),
-    sort: str = Query("newest", pattern="^(price_asc|price_desc|newest|best_selling)$", description="price_asc, price_desc, newest, best_selling"),
+    sort: str = Query("newest", pattern="^(price_asc|price_desc|newest|best_selling|random)$", description="price_asc, price_desc, newest, best_selling, random"),
     db: Session = Depends(get_db),
 ):
     """Search, filter, sort and paginate visible products."""
@@ -113,6 +113,25 @@ def list_products(
     query = query.options(selectinload(Product.category), selectinload(Product.product_images))
     total = query.count()
     products = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    # Tính toán số sao trung bình và số lượng đánh giá cho các sản phẩm
+    product_ids = [p.id for p in products]
+    if product_ids:
+        from app.models.review import ProductReview
+        stats = (
+            db.query(
+                ProductReview.product_id,
+                func.coalesce(func.round(func.avg(ProductReview.rating), 1), 0.0).label("avg_rating"),
+                func.count(ProductReview.id).label("cnt"),
+            )
+            .filter(ProductReview.product_id.in_(product_ids))
+            .group_by(ProductReview.product_id)
+            .all()
+        )
+        ratings_map = {row.product_id: (float(row.avg_rating), int(row.cnt)) for row in stats}
+        for p in products:
+            p.average_rating, p.review_count = ratings_map.get(p.id, (0.0, 0))
+
     return {"total": total, "page": page, "page_size": page_size, "items": products}
 
 
@@ -185,6 +204,11 @@ def get_product_detail(product_id: int, db: Session = Depends(get_db)):
         .limit(8)
         .all()
     )
+    from app.service import review as review_service
+    rating_sum = review_service.get_product_rating_summary(db, product.id)
+    product.average_rating = rating_sum.average_rating
+    product.review_count = rating_sum.review_count
+
     product_data = PublicProductResponse.model_validate(product).model_dump()
     product_data["related_products"] = related_products
     return product_data

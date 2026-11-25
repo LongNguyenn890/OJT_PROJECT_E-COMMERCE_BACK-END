@@ -67,14 +67,6 @@ USERS_SEED_DATA = [
         "password": DEFAULT_PASSWORD,
         "role": Role.ADMIN,
         "status": Status.ACTIVE,
-        "address": {
-            "receiver_name": "Quản Trị Viên",
-            "phone": "0901234567",
-            "province": "Hà Nội",
-            "ward": "Phường Cầu Giấy",
-            "street_detail": "Số 1 Duy Tân",
-            "is_default": 1,
-        },
     },
     # 1 Nhân viên
     {
