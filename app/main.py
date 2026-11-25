@@ -193,11 +193,15 @@ from fastapi.staticfiles import StaticFiles
 
 # Thư mục lưu trữ tệp tĩnh (ảnh tải lên)
 UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-(UPLOAD_DIR / "avatars").mkdir(parents=True, exist_ok=True)
-(UPLOAD_DIR / "products").mkdir(parents=True, exist_ok=True)
-(UPLOAD_DIR / "reviews").mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    (UPLOAD_DIR / "avatars").mkdir(parents=True, exist_ok=True)
+    (UPLOAD_DIR / "products").mkdir(parents=True, exist_ok=True)
+    (UPLOAD_DIR / "reviews").mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass  # Bỏ qua nếu môi trường chỉ đọc (Serverless)
+if UPLOAD_DIR.exists():
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Mọi API đều bắt đầu bằng /api. Sắp xếp router theo luồng nghiệp vụ chuẩn:
 app.include_router(auth.router, prefix="/api")
